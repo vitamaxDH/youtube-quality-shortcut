@@ -1,0 +1,59 @@
+{
+  "name": "YouTube Quality ShortCut",
+  "manifest_version": 3,
+  "version": "1.0",
+  "description": "Control You Tube video quality with keyboard shortcuts.",
+  "permissions": [
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.youtube.com/*"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "host_permissions": [
+    "https://*/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "24": "images/icon24.png",
+      "32": "images/icon32.png"
+    }
+  },
+  "commands": {
+    "decrease_quality": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+1",
+        "mac": "Command+Shift+1"
+      },
+      "description": "Decrease YouTube video quality"
+    },
+    "increase_quality": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+2",
+        "mac": "Command+Shift+2"
+      },
+      "description": "Increase YouTube video quality"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "resources": [
+        "quality_control.js"
+      ]
+    }
+  ]
+}
