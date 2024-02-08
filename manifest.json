@@ -30,6 +30,11 @@
       "32": "images/icon32.png"
     }
   },
+  "icons": {
+    "16": "images/icon_active_16.png",
+    "24": "images/icon_active_24.png",
+    "32": "images/icon_active_32.png"
+  },
   "commands": {
     "decrease_quality": {
       "suggested_key": {
