@@ -6,44 +6,30 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     <title>YouTube Quality Control</title>
     <script src="check_os.js"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        .grid {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        section {
-            flex: 1;
-        }
-    </style>
+    <link rel="stylesheet" href="./style.css">
 </head>
-<body style="width: 400px; height: 100px;">
+<body>
     <main class="container">
         <div class="grid">
             <section>
                 <hgroup>
-                    <h2>YouTube Quality Shortcuts</h2>
-                    <h3>Control YouTube video quality with ease</h3>
+                    <h3>YouTube Quality Shortcuts</h3>
+                    <h4>Control YouTube video quality with ease</h4>
                 </hgroup>
                 
-                <div id="windowsShortcuts">
-                    <h3>Windows</h3>
+                <div id="windowsShortcuts" class="shortcut-list">
+                    <h4>Windows</h4>
                     <ul>
                         <li><strong>Control + Shift + 1:</strong> Decrease Quality</li>
                         <li><strong>Control + Shift + 2:</strong> Increase Quality</li>
                     </ul>
                 </div>
                 
-                <div id="macShortcuts">
+                <div id="macShortcuts" class="shortcut-list">
                     <h3>Mac</h3>
                     <ul>
-                        <li><strong>Command + Shift + 1:</strong> Decrease Quality</li>
-                        <li><strong>Command + Shift + 2:</strong> Increase Quality</li>
+                        <li><strong>⌘ + ⇧ + 1:</strong> Decrease Quality</li>
+                        <li><strong>⌘ + ⇧ + 2:</strong> Increase Quality</li>
                     </ul>
                 </div>
             </section>
