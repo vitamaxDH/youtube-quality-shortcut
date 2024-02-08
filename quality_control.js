@@ -1,6 +1,5 @@
-document.addEventListener('qualityControlEvent', function (event) {
-    console.log('Received in injected script:', event.detail);
-    const { command } = event.detail;
+document.addEventListener('qualityControlEvent', function ({detail}) {
+    const { command } = detail;
     switch (command) {
         case "decrease_quality":
             changeQuality(false);
@@ -23,13 +22,14 @@ function changeQuality(increase) {
 
     let currentQualityIndex = qualities.indexOf(player.getPlaybackQuality());
     console.log('qualities', qualities);
-    console.log('currentQualityIndex', currentQualityIndex);
-
+    
     if (increase && currentQualityIndex > 0) {
-        // Increase quality: select the next higher quality available
-        player.setPlaybackQualityRange(qualities[currentQualityIndex - 1]);
+        const quality = qualities[currentQualityIndex - 1];
+        console.log('Quality applied', quality);
+        player.setPlaybackQualityRange(quality);
     } else if (!increase && currentQualityIndex < qualities.length - 1) {
-        // Decrease quality: select the next lower quality available
-        player.setPlaybackQualityRange(qualities[currentQualityIndex + 1]);
+        const quality = qualities[currentQualityIndex + 1];
+        console.log('Quality applied', quality);
+        player.setPlaybackQualityRange(quality);
     }
 }
