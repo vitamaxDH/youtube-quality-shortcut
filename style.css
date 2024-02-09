@@ -12,7 +12,7 @@ body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    width: 350px; /* Adjust body width to content */
+    width: 370px; /* Adjust body width to content */
 }
 
 .grid {
