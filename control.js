@@ -1,4 +1,4 @@
-document.addEventListener('qualityControlEvent', function ({detail}) {
+document.addEventListener('controlEvent', function ({detail}) {
     const { command } = detail;
     switch (command) {
         case "decrease_quality":
@@ -24,12 +24,11 @@ function changeQuality(increase) {
     console.log('qualities', qualities);
     
     if (increase && currentQualityIndex > 0) {
-        const quality = qualities[currentQualityIndex - 1];
-        console.log('Quality applied', quality);
-        player.setPlaybackQualityRange(quality);
+        currentQualityIndex--
     } else if (!increase && currentQualityIndex < qualities.length - 1) {
-        const quality = qualities[currentQualityIndex + 1];
-        console.log('Quality applied', quality);
-        player.setPlaybackQualityRange(quality);
+        currentQualityIndex++
     }
+    const quality = qualities[currentQualityIndex];
+    console.log('Quality applied', quality);
+    player.setPlaybackQualityRange(quality);
 }

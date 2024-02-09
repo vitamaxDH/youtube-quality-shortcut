@@ -6,7 +6,6 @@ async function injectScript(filePath) {
   }
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.setAttribute('type', 'text/javascript');
     script.setAttribute('src', filePath);
     script.onload = () => {
       initialized = true;
@@ -18,8 +17,9 @@ async function injectScript(filePath) {
 }
 
 chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-  await injectScript(chrome.runtime.getURL('./quality_control.js'));
+  console.log('request', request);
+  await injectScript(chrome.runtime.getURL('./control.js'));
   let command = { command: request.command };
-  let event = new CustomEvent('qualityControlEvent', { detail: command });
+  let event = new CustomEvent('controlEvent', { detail: command });
   document.dispatchEvent(event);
 });
