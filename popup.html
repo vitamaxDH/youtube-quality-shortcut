@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     <title>YouTube Quality Control</title>
-    <script src="check_os.js"></script>
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -17,16 +16,16 @@
                     <h4>Control YouTube video quality with ease</h4>
                 </hgroup>
                 
-                <div id="windowsShortcuts" class="shortcut-list">
-                    <h4>Windows</h4>
+                <div id="windowsShortcuts" class="shortcut-list" style="display: none;">
+                    <h4>Windows/Linux</h4>
                     <ul>
                         <li><strong>Control + Shift + 1:</strong> Decrease Quality</li>
                         <li><strong>Control + Shift + 2:</strong> Increase Quality</li>
                     </ul>
                 </div>
                 
-                <div id="macShortcuts" class="shortcut-list">
-                    <h3>Mac</h3>
+                <div id="macShortcuts" class="shortcut-list" style="display: none;">
+                    <h4>Mac</h4>
                     <ul>
                         <li><strong>⌘ + ⇧ + 1:</strong> Decrease Quality</li>
                         <li><strong>⌘ + ⇧ + 2:</strong> Increase Quality</li>
@@ -35,5 +34,7 @@
             </section>
         </div>
     </main>    
+
+    <script src="check_os.js"></script>
 </body>
 </html>
