@@ -1,19 +1,22 @@
 #!/bin/zsh
 
-# Check if a file name is provided
-if [ -z "$1" ]; then
-  echo "Usage: $0 <zip-file-name>"
+# Check if a manifest.json file exists
+if [ ! -f "manifest.json" ]; then
+  echo "manifest.json file not found!"
+  exit 1
+fi
+
+# Extract the version from manifest.json using jq
+VERSION=$(jq -r '.version' manifest.json)
+
+# Check if the version was extracted successfully
+if [ -z "$VERSION" ]; then
+  echo "Version not found in manifest.json!"
   exit 1
 fi
 
 # Variables
-ZIP_FILE_NAME=$1
-
-# Append .zip extension if not present
-if [[ $ZIP_FILE_NAME != *.zip ]]; then
-  ZIP_FILE_NAME="${ZIP_FILE_NAME}.zip"
-fi
-
+ZIP_FILE_NAME="v${VERSION}.zip"
 OUTPUT_DIR="output"
 OUTPUT_ZIP="${OUTPUT_DIR}/${ZIP_FILE_NAME}"
 
