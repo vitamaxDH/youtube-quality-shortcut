@@ -10,6 +10,9 @@ document.addEventListener('controlEvent', function ({detail}) {
     }
 });
 
+const policy = window.trustedTypes.createPolicy('default', {
+    createHTML: (input) => input
+});
 let prevTimeoutId;
 const resolutionMap = {
     tiny: {
@@ -51,7 +54,7 @@ const resolutionMap = {
 function changeQuality(increase) {
     const player = document.getElementById('movie_player');
     let qualities = player.getAvailableQualityLevels();
-
+    console.log('hello');
     // Remove 'auto' from the list of qualities
     const autoIndex = qualities.indexOf('auto');
     if (autoIndex !== -1) {
@@ -81,6 +84,7 @@ function changeQuality(increase) {
     if (wrapperParent?.classList.contains('ytp-bezel-text-hide')) {
         wrapperParent.classList.remove('ytp-bezel-text-hide');
     }
+
     if (bezelTextElement) {
         const resolution = resolutionMap[quality];
         let qualityHtml = resolution?.label || quality;
