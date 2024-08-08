@@ -54,7 +54,7 @@ const resolutionMap = {
 function changeQuality(increase) {
     const player = document.getElementById('movie_player');
     let qualities = player.getAvailableQualityLevels();
-    console.log('hello');
+
     // Remove 'auto' from the list of qualities
     const autoIndex = qualities.indexOf('auto');
     if (autoIndex !== -1) {
