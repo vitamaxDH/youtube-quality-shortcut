@@ -1,29 +1,52 @@
 #!/bin/zsh
+#
+# Script to package Chrome extension into a versioned zip file
+# Requires: jq, zip, git
 
-# Check if a manifest.json file exists
-if [ ! -f "manifest.json" ]; then
-  echo "manifest.json file not found!"
-  exit 1
-fi
+set -e  # Exit immediately if a command exits with non-zero status
 
-# Extract the version from manifest.json using jq
-VERSION=$(jq -r '.version' manifest.json)
-
-# Check if the version was extracted successfully
-if [ -z "$VERSION" ]; then
-  echo "Version not found in manifest.json!"
-  exit 1
-fi
-
-# Variables
-ZIP_FILE_NAME="v${VERSION}.zip"
+# Constants
+MANIFEST_FILE="manifest.json"
 OUTPUT_DIR="output"
+
+# Check dependencies
+check_dependencies() {
+  command -v jq >/dev/null 2>&1 || { echo "Error: jq is required but not installed"; exit 1; }
+  command -v zip >/dev/null 2>&1 || { echo "Error: zip is required but not installed"; exit 1; }
+}
+
+# Execute dependency check
+check_dependencies
+
+# Check if manifest file exists
+if [ ! -f "$MANIFEST_FILE" ]; then
+  echo "Error: $MANIFEST_FILE not found in current directory!"
+  exit 1
+fi
+
+# Extract the version from manifest.json
+VERSION=$(jq -r '.version' "$MANIFEST_FILE")
+if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+  echo "Error: Failed to extract version from $MANIFEST_FILE"
+  exit 1
+fi
+
+# Setup output paths
+ZIP_FILE_NAME="v${VERSION}.zip"
 OUTPUT_ZIP="${OUTPUT_DIR}/${ZIP_FILE_NAME}"
 
 # Create output directory if it doesn't exist
-mkdir -p $OUTPUT_DIR
+mkdir -p "$OUTPUT_DIR"
 
-# Generate a list of files to include in the zip, respecting .gitignore
-git ls-files -z | xargs -0 zip -r $OUTPUT_ZIP
+# Create the zip package
+echo "Packaging version $VERSION..."
+git ls-files -z | xargs -0 zip -r "$OUTPUT_ZIP"
 
-echo "Created $OUTPUT_ZIP without files in .gitignore"
+# Verify zip was created
+if [ -f "$OUTPUT_ZIP" ]; then
+  echo "✅ Successfully created: $OUTPUT_ZIP"
+  echo "Package excludes files in .gitignore"
+else
+  echo "Error: Failed to create zip package"
+  exit 1
+fi

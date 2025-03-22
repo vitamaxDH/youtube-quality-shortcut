@@ -1,128 +1,248 @@
-let initialized = false;
-let customShortcutGuideAdded = false;
+/**
+ * YouTube Quality Shortcut - Content Script
+ * 
+ * This script runs in the context of YouTube pages and performs two main functions:
+ * 1. Injects the quality control script and handles keyboard commands
+ * 2. Adds our custom shortcuts to YouTube's keyboard shortcut guide
+ */
 
-// Function to inject scripts dynamically
-async function injectScript(filePath) {
-  if (initialized) {
+// Tracking flags
+let controlScriptInitialized = false;
+let shortcutGuideModified = false;
+let dialogObserverActive = false;
+
+// OS detection for showing correct keyboard shortcuts
+// navigator.platform is deprecated but we provide a fallback
+const isMacOS = /Mac/i.test(navigator.userAgentData?.platform || navigator.platform || '');
+const KEYBOARD_SHORTCUTS = Object.freeze({
+  qualityDown: isMacOS ? '⌘ + ⇧ + 1' : 'Ctrl + Shift + 1',
+  qualityUp: isMacOS ? '⌘ + ⇧ + 2' : 'Ctrl + Shift + 2'
+});
+
+// Constants for selectors and timeouts
+const SELECTORS = Object.freeze({
+  popupContainer: 'ytd-popup-container',
+  dialogElement: 'TP-YT-PAPER-DIALOG',
+  dialogScrollable: 'tp-yt-paper-dialog-scrollable',
+  sectionRenderer: 'ytd-hotkey-dialog-section-renderer',
+  subTitle: 'div[id="sub-title"]',
+  options: 'div[id="options"]',
+  shortcutOption: 'ytd-hotkey-dialog-section-option-renderer',
+  label: 'div[id="label"]',
+  hotkey: 'div[id="hotkey"]'
+});
+
+const RETRY_DELAY = 1000;
+const EXTENSION_NAME = 'YouTube Quality Shortcut';
+
+/**
+ * Dynamically injects the control script into the page
+ * @param {string} scriptPath - Path to the script to inject
+ * @returns {Promise} - Resolves when script is loaded
+ */
+async function injectControlScript(scriptPath) {
+  if (controlScriptInitialized) {
     return Promise.resolve();
   }
+  
   return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.setAttribute('src', filePath);
-    script.onload = () => {
-      initialized = true;
-      resolve();
-    };
-    script.onerror = () => {
-      reject(new Error('Script loading failed.'));
-    };
-    document.body.appendChild(script);
+    try {
+      const script = document.createElement('script');
+      script.src = scriptPath;
+      
+      // Use modern event listeners with options
+      script.addEventListener('load', () => {
+        controlScriptInitialized = true;
+        resolve();
+      }, { once: true });
+      
+      script.addEventListener('error', () => {
+        reject(new Error(`Failed to load ${EXTENSION_NAME} control script`));
+      }, { once: true });
+      
+      document.body.appendChild(script);
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
-// Listener for messages from the background or popup script
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
-  await injectScript(chrome.runtime.getURL('./control.js'));
-  let command = { command: request.command };
-  let event = new CustomEvent('controlEvent', { detail: command });
-  document.dispatchEvent(event);
+/**
+ * Listens for keyboard commands from the service worker
+ */
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Don't use async in the listener as it may cause issues with messaging
+  injectControlScript(chrome.runtime.getURL('./control.js'))
+    .then(() => {
+      // Forward the command to the injected script
+      const event = new CustomEvent('controlEvent', { 
+        detail: { command: request.command }
+      });
+      document.dispatchEvent(event);
+    })
+    .catch(error => {
+      console.error(`${EXTENSION_NAME}:`, error);
+    });
+  
+  // Return true to indicate we'll handle the response asynchronously
+  return true;
 });
 
-// Function to set up the observer on ytd-popup-container
-function setupContainerObserver() {
-  const container = document.querySelector('ytd-popup-container');
+/**
+ * Sets up mutation observer to detect when YouTube's shortcut dialog opens
+ */
+function observeYouTubeShortcutDialog() {
+  if (dialogObserverActive) return;
+  
+  const container = document.querySelector(SELECTORS.popupContainer);
+  
   if (!container) {
-    setTimeout(setupContainerObserver, 1000);
+    // Try again if container isn't ready yet
+    setTimeout(observeYouTubeShortcutDialog, RETRY_DELAY);
     return;
   }
 
-  const observer = new MutationObserver((mutationsList, observer) => {
-    for (let mutation of mutationsList) {
-      if (mutation.type === 'childList') {
-        mutation.addedNodes.forEach(node => {
-          if (node.nodeName === 'TP-YT-PAPER-DIALOG' && !node.observed) {
-            node.observed = true;
-            observeTpYtPaperDialog(node);
-            observer.disconnect();
-          }
-        });
+  dialogObserverActive = true;
+  
+  // Create an observer instance with optimal configuration
+  const containerObserver = new MutationObserver((mutations) => {
+    for (const { type, addedNodes } of mutations) {
+      if (type !== 'childList') continue;
+      
+      for (const node of addedNodes) {
+        if (node.nodeName === SELECTORS.dialogElement && !node.observed) {
+          node.observed = true;
+          watchForDialogVisibility(node);
+          containerObserver.disconnect();
+          dialogObserverActive = false;
+          break;
+        }
       }
     }
   });
 
-  observer.observe(container, {
+  // Optimize observer with childList only and no subtree for better performance
+  containerObserver.observe(container, {
     childList: true,
     subtree: true
   });
 }
 
-async function observeTpYtPaperDialog(element) {
-  const tpYtObserverCallback = (mutationsList, observer) => {
-    for (let mutation of mutationsList) {
+/**
+ * Watches for the dialog to become visible
+ * @param {HTMLElement} dialogElement - The YouTube shortcut dialog element
+ */
+function watchForDialogVisibility(dialogElement) {
+  const styleObserver = new MutationObserver((mutations) => {
+    // Use for...of instead of for...in for better performance with arrays
+    for (const mutation of mutations) {
       if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-        let displayStyle = window.getComputedStyle(element).display;
-        if (!customShortcutGuideAdded && displayStyle !== 'none') {
-          customShortcutGuideAdded = true;
-          addCustomShortcutGuidance();
-          observer.disconnect();
+        const isVisible = window.getComputedStyle(dialogElement).display !== 'none';
+        
+        if (isVisible && !shortcutGuideModified) {
+          shortcutGuideModified = true;
+          // Wait for DOM to be fully rendered
+          requestAnimationFrame(() => {
+            addQualityShortcutsToGuide();
+            styleObserver.disconnect();
+          });
+          break;
         }
       }
     }
-  };
+  });
 
-  const tpYtObserver = new MutationObserver(tpYtObserverCallback);
-  tpYtObserver.observe(element, {
+  styleObserver.observe(dialogElement, {
     attributes: true,
     attributeFilter: ['style']
   });
 }
 
-async function addCustomShortcutGuidance() {
-  const dialog = document.querySelector('tp-yt-paper-dialog-scrollable');
-  const renderers = dialog.querySelectorAll('ytd-hotkey-dialog-section-renderer');
-  let subTitleDiv = null;
-  let options = null;
-  let hotKeyOption = null;
-  const render = Array.from(renderers).find(section => {
-    subTitleDiv = section.querySelector('div[id="sub-title"]');
-    if (subTitleDiv && subTitleDiv.textContent.toLowerCase() === 'general') {
-      options = section.querySelector('div[id="options"]');
-      hotKeyOption = options.querySelector('ytd-hotkey-dialog-section-option-renderer');
-      return true;
-    }
-    return false;
-  });
-
-  if (render && subTitleDiv && options && hotKeyOption) {
-    const newSubTitleDiv = subTitleDiv.cloneNode(false);
-    const newOptions = options.cloneNode(false);
-
-    const isMac = navigator.userAgent.indexOf('Mac OS X') != -1;
-    const downHotKeyCommand = isMac ? '⌘ + ⇧ + 1' : 'Ctrl + Shift + 1';
-    const upHotKeyCommand = isMac ? '⌘ + ⇧ + 2' : 'Ctrl + Shift + 2';
-
-    const qualityUpHotKeyOption = await createHotkeyOptions(hotKeyOption, { label: 'Quality Up', hotkey: upHotKeyCommand });
-    const qualityDownHotKeyOption = await createHotkeyOptions(hotKeyOption, { label: 'Quality Down', hotkey: downHotKeyCommand });
-
-    // Append the cloned hotKeyOption to the cloned options
-    newOptions.appendChild(qualityDownHotKeyOption);
-    newOptions.appendChild(qualityUpHotKeyOption);
-
-    // Append the cloned subTitleDiv and options to the original render
-    newSubTitleDiv.textContent = 'Youtube Quality Shortcut';
-
-    render.appendChild(newSubTitleDiv);
-    render.appendChild(newOptions);
+/**
+ * Adds our custom shortcuts to YouTube's keyboard shortcut guide
+ */
+function addQualityShortcutsToGuide() {
+  try {
+    const dialog = document.querySelector(SELECTORS.dialogScrollable);
+    if (!dialog) return;
+    
+    const sectionRenderers = dialog.querySelectorAll(SELECTORS.sectionRenderer);
+    if (!sectionRenderers.length) return;
+    
+    // Find the "General" section to append our shortcuts
+    const generalSection = Array.from(sectionRenderers).find(section => {
+      const titleDiv = section.querySelector(SELECTORS.subTitle);
+      return titleDiv?.textContent.toLowerCase() === 'general';
+    });
+    
+    if (!generalSection) return;
+    
+    const existingSubtitleDiv = generalSection.querySelector(SELECTORS.subTitle);
+    const existingOptionsDiv = generalSection.querySelector(SELECTORS.options);
+    const existingShortcutOption = existingOptionsDiv?.querySelector(SELECTORS.shortcutOption);
+    
+    if (!existingSubtitleDiv || !existingOptionsDiv || !existingShortcutOption) return;
+    
+    // Create our custom section elements
+    const fragment = document.createDocumentFragment();
+    
+    // Create section title
+    const customSectionTitle = existingSubtitleDiv.cloneNode(false);
+    customSectionTitle.textContent = EXTENSION_NAME;
+    fragment.appendChild(customSectionTitle);
+    
+    // Create options container
+    const customOptionsDiv = existingOptionsDiv.cloneNode(false);
+    
+    // Create our shortcut entries
+    const qualityUpOption = createShortcutEntry(
+      existingShortcutOption, 
+      'Quality Up', 
+      KEYBOARD_SHORTCUTS.qualityUp
+    );
+    
+    const qualityDownOption = createShortcutEntry(
+      existingShortcutOption, 
+      'Quality Down', 
+      KEYBOARD_SHORTCUTS.qualityDown
+    );
+    
+    // Add options to our custom section
+    customOptionsDiv.append(qualityDownOption, qualityUpOption);
+    fragment.appendChild(customOptionsDiv);
+    
+    // Add everything to the dialog in a single DOM update for better performance
+    generalSection.appendChild(fragment);
+    
+  } catch (error) {
+    console.error(`${EXTENSION_NAME}: Failed to modify keyboard shortcut guide`, error);
+    // Reset the flag so we can try again if the dialog reopens
+    shortcutGuideModified = false;
   }
 }
 
-async function createHotkeyOptions(originalHotkeyOption, hotkeyCommand) {
-  const hotkeyOption = originalHotkeyOption.cloneNode(true);
-  const label = hotkeyOption.querySelector('div[id="label"]');
-  const hotkey = hotkeyOption.querySelector('div[id="hotkey"]');
-  if (label) label.textContent = hotkeyCommand.label;
-  if (hotkey) hotkey.textContent = hotkeyCommand.hotkey;
-  return hotkeyOption;
+/**
+ * Creates a keyboard shortcut entry for the YouTube shortcuts dialog
+ * @param {HTMLElement} template - The template element to clone
+ * @param {string} labelText - The shortcut description
+ * @param {string} hotkeyText - The keyboard shortcut
+ * @returns {HTMLElement} The created shortcut entry
+ */
+function createShortcutEntry(template, labelText, hotkeyText) {
+  const shortcutEntry = template.cloneNode(true);
+  
+  const labelElement = shortcutEntry.querySelector(SELECTORS.label);
+  const hotkeyElement = shortcutEntry.querySelector(SELECTORS.hotkey);
+  
+  if (labelElement) labelElement.textContent = labelText;
+  if (hotkeyElement) hotkeyElement.textContent = hotkeyText;
+  
+  return shortcutEntry;
 }
 
-setupContainerObserver();
+// Initialize observers when the content script loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', observeYouTubeShortcutDialog);
+} else {
+  observeYouTubeShortcutDialog();
+}
