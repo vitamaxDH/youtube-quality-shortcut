@@ -2,6 +2,8 @@
 
 ![intro screen shot](./images/intros/intro_1.png)
 
+[Install from Chrome Web Store](https://chromewebstore.google.com/detail/youtube-quality-shortcut/idcemhhjdleodchiihagkfehahofmibc)
+
 ## Overview
 
 Control YouTube video quality with keyboard shortcuts or an intuitive slider interface.
