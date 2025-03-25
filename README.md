@@ -1,6 +1,6 @@
 # YouTube Quality Shortcuts
 
-![intro screen shot](./images/intro_1.png)
+![intro screen shot](./images/intros/intro_1.png)
 
 ## Overview
 
