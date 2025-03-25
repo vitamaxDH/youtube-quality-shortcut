@@ -16,25 +16,56 @@
                     <h4>Control YouTube video quality with ease</h4>
                 </hgroup>
                 
-                <div id="windowsShortcuts" class="shortcut-list" style="display: none;">
-                    <h4>Windows/Linux</h4>
-                    <ul>
-                        <li><strong>Control + Shift + 1:</strong> Decrease Quality</li>
-                        <li><strong>Control + Shift + 2:</strong> Increase Quality</li>
-                    </ul>
+                <div class="control-panel">
+                    <h4>Quality Control</h4>
+                    
+                    <div class="quality-slider-container">
+                        <label for="qualitySlider">Adjust Quality</label>
+                        <div class="slider-labels">
+                            <span>Low</span>
+                            <span>High</span>
+                        </div>
+                        <input type="range" id="qualitySlider" min="0" max="100" value="50">
+                        <div id="currentQuality" class="current-quality">1080p</div>
+                    </div>
+                    
+                    <div class="quality-presets">
+                        <h5>Quality Presets</h5>
+                        <label class="radio-container">
+                            <input type="radio" name="quality-preset" id="lowestQuality">
+                            <span>Lowest Quality</span>
+                        </label>
+                        <label class="radio-container">
+                            <input type="radio" name="quality-preset" id="highestQuality">
+                            <span>Highest Quality</span>
+                        </label>
+                    </div>
                 </div>
                 
-                <div id="macShortcuts" class="shortcut-list" style="display: none;">
-                    <h4>Mac</h4>
-                    <ul>
-                        <li><strong>⌘ + ⇧ + 1:</strong> Decrease Quality</li>
-                        <li><strong>⌘ + ⇧ + 2:</strong> Increase Quality</li>
-                    </ul>
+                <div id="statusMessage" class="status-message status-info">
+                    Loading quality information...
+                </div>
+                
+                <div class="shortcuts-section">
+                    <h4>Keyboard Shortcuts</h4>
+                    <div id="macShortcuts" class="shortcut-list">
+                        <p>⌘ + ⇧ + 1: Decrease Quality</p>
+                        <p>⌘ + ⇧ + 2: Increase Quality</p>
+                        <p>⌘ + ⇧ + 9: Lowest Quality</p>
+                        <p>⌘ + ⇧ + 0: Highest Quality</p>
+                    </div>
+                    <div id="windowsShortcuts" class="shortcut-list" style="display: none;">
+                        <p>Ctrl + Shift + 1: Decrease Quality</p>
+                        <p>Ctrl + Shift + 2: Increase Quality</p>
+                        <p>Ctrl + Shift + 9: Lowest Quality</p>
+                        <p>Ctrl + Shift + 0: Highest Quality</p>
+                    </div>
                 </div>
             </section>
         </div>
     </main>    
 
     <script src="check_os.js"></script>
+    <script src="popup.js"></script>
 </body>
 </html>
