@@ -68,25 +68,123 @@ async function injectControlScript(scriptPath) {
 }
 
 /**
- * Listens for keyboard commands from the service worker
+ * Listens for keyboard commands from the service worker or popup
  */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // Don't use async in the listener as it may cause issues with messaging
+  // Handle quality info request from popup
+  if (request.command === 'get_quality_info') {
+    getYouTubeQualityInfo()
+      .then(qualityInfo => {
+        sendResponse({
+          success: true,
+          currentQuality: qualityInfo.currentQuality,
+          availableQualities: qualityInfo.availableQualities
+        });
+      })
+      .catch(error => {
+        console.error(`${EXTENSION_NAME}:`, error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
+  }
+  
+  // Handle specific quality setting or other command
   injectControlScript(chrome.runtime.getURL('./control.js'))
     .then(() => {
       // Forward the command to the injected script
-      const event = new CustomEvent('controlEvent', { 
-        detail: { command: request.command }
-      });
+      let eventDetail = { command: request.command };
+      
+      // Add quality parameter for specific quality setting
+      if (request.command === 'set_specific_quality' && request.quality) {
+        eventDetail.quality = request.quality;
+      }
+      
+      // Map popup commands to control script commands if needed
+      if (request.command === 'lowest_quality') {
+        eventDetail.command = 'lowest_quality';
+      } else if (request.command === 'highest_quality') {
+        eventDetail.command = 'highest_quality';
+      }
+      
+      const event = new CustomEvent('controlEvent', { detail: eventDetail });
       document.dispatchEvent(event);
+      
+      // If it's a quality change command, get the new quality after a short delay
+      const qualityChangeCommands = ['increase_quality', 'decrease_quality', 'highest_quality', 'lowest_quality', 'set_specific_quality'];
+      
+      if (qualityChangeCommands.includes(request.command)) {
+        setTimeout(() => {
+          getYouTubeQualityInfo()
+            .then(qualityInfo => {
+              sendResponse({
+                success: true,
+                newQuality: qualityInfo.currentQuality
+              });
+            })
+            .catch(() => {
+              sendResponse({ success: true });
+            });
+        }, 100);
+      } else {
+        sendResponse({ success: true });
+      }
     })
     .catch(error => {
       console.error(`${EXTENSION_NAME}:`, error);
+      sendResponse({ success: false, error: error.message });
     });
   
   // Return true to indicate we'll handle the response asynchronously
   return true;
 });
+
+/**
+ * Gets the current YouTube video quality information
+ * @returns {Promise<Object>} Information about current quality and available qualities
+ */
+function getYouTubeQualityInfo() {
+  return new Promise((resolve, reject) => {
+    try {
+      // First make sure we've injected the control script
+      injectControlScript(chrome.runtime.getURL('./control.js'))
+        .then(() => {
+          // Create a one-time event to get quality info from the page
+          const requestId = Date.now().toString();
+          
+          // Create a listener for the response
+          const qualityInfoListener = event => {
+            if (event.detail && event.detail.requestId === requestId) {
+              document.removeEventListener('qualityInfoResponse', qualityInfoListener);
+              resolve({
+                currentQuality: event.detail.currentQuality,
+                availableQualities: event.detail.availableQualities
+              });
+            }
+          };
+          
+          // Add the listener
+          document.addEventListener('qualityInfoResponse', qualityInfoListener);
+          
+          // Dispatch request to the injected script
+          const event = new CustomEvent('getQualityInfo', { 
+            detail: { requestId }
+          });
+          document.dispatchEvent(event);
+          
+          // Set a timeout in case the page doesn't respond
+          setTimeout(() => {
+            document.removeEventListener('qualityInfoResponse', qualityInfoListener);
+            reject(new Error('Timed out waiting for quality info'));
+          }, 1000);
+        })
+        .catch(error => {
+          reject(error);
+        });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
 
 /**
  * Sets up mutation observer to detect when YouTube's shortcut dialog opens
