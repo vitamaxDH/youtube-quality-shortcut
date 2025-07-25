@@ -60,7 +60,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         });
         return true;
     }
-    injectControlScript(chrome.runtime.getURL('./dist/control.js'))
+    injectControlScript(chrome.runtime.getURL('./control.js'))
         .then(() => {
         let eventDetail = { command: request.command };
         if (request.command === 'set_specific_quality' && request.quality) {
@@ -102,7 +102,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 function getYouTubeQualityInfo() {
     return new Promise((resolve, reject) => {
         try {
-            injectControlScript(chrome.runtime.getURL('./dist/control.js'))
+            injectControlScript(chrome.runtime.getURL('./control.js'))
                 .then(() => {
                 const requestId = Date.now().toString();
                 const qualityInfoListener = (event) => {

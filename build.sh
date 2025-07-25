@@ -8,6 +8,7 @@ set -e  # Exit immediately if a command exits with non-zero status
 # Constants
 MANIFEST_FILE="manifest.json"
 OUTPUT_DIR="output"
+DIST_DIR="dist"
 
 # Check dependencies
 check_dependencies() {
@@ -37,7 +38,7 @@ fi
 ZIP_FILE_NAME="v${VERSION}.zip"
 OUTPUT_ZIP="${OUTPUT_DIR}/${ZIP_FILE_NAME}"
 
-# Create output directory if it doesn't exist
+# Create directories if they don't exist
 mkdir -p "$OUTPUT_DIR"
 
 # Install dependencies and compile TypeScript
@@ -47,14 +48,28 @@ npm install
 echo "Compiling TypeScript..."
 npm run compile
 
-# Create the zip package
+# Prepare dist directory with all extension files
+echo "Preparing distribution files..."
+
+# Copy all necessary files to dist (alongside the compiled JS files)
+cp manifest.json "${DIST_DIR}/"
+cp popup.html "${DIST_DIR}/"
+cp style.css "${DIST_DIR}/"
+cp -r images "${DIST_DIR}/"
+
+# Create the zip package from dist
 echo "Packaging version $VERSION..."
-git ls-files -z | xargs -0 zip -r "$OUTPUT_ZIP"
+cd "${DIST_DIR}"
+zip -r "../${OUTPUT_ZIP}" . -x "*.DS_Store" -x "extension/*"
+
+# Return to original directory
+cd ..
 
 # Verify zip was created
 if [ -f "$OUTPUT_ZIP" ]; then
   echo "✅ Successfully created: $OUTPUT_ZIP"
-  echo "Package excludes files in .gitignore"
+  echo "📁 Extension files available in: ${DIST_DIR}/"
+  echo "   The dist directory contains the exact same files as the zip package"
 else
   echo "Error: Failed to create zip package"
   exit 1

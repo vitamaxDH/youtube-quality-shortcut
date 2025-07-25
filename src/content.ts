@@ -131,7 +131,7 @@ chrome.runtime.onMessage.addListener((
   }
   
   // Handle specific quality setting or other command
-  injectControlScript(chrome.runtime.getURL('./dist/control.js'))
+  injectControlScript(chrome.runtime.getURL('./control.js'))
     .then(() => {
       // Forward the command to the injected script
       let eventDetail: { command: string; quality?: string } = { command: request.command };
@@ -188,7 +188,7 @@ function getYouTubeQualityInfo(): Promise<QualityResponse> {
   return new Promise((resolve, reject) => {
     try {
       // First make sure we've injected the control script
-      injectControlScript(chrome.runtime.getURL('./dist/control.js'))
+      injectControlScript(chrome.runtime.getURL('./control.js'))
         .then(() => {
           // Create a one-time event to get quality info from the page
           const requestId = Date.now().toString();

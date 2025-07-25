@@ -10,7 +10,8 @@
       "Bash(unzip:*)",
       "Bash(diff:*)",
       "Bash(ls:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
