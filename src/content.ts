@@ -11,9 +11,45 @@ let controlScriptInitialized = false;
 let shortcutGuideModified = false;
 let dialogObserverActive = false;
 
+// Types for quality info
+interface QualityInfo {
+  id: string;
+  label: string;
+  tag?: string;
+}
+
+interface QualityResponse {
+  success: boolean;
+  currentQuality?: QualityInfo;
+  availableQualities?: QualityInfo[];
+}
+
+interface NavigatorUserAgentData {
+  platform: string;
+}
+
+interface ExtendedNavigator extends Navigator {
+  userAgentData?: NavigatorUserAgentData;
+}
+
+interface ChromeMessage {
+  command: string;
+  quality?: string;
+  tabId?: number;
+}
+
+interface ChromeResponse {
+  success: boolean;
+  currentQuality?: QualityInfo;
+  availableQualities?: QualityInfo[];
+  newQuality?: QualityInfo;
+  error?: string;
+}
+
 // OS detection for showing correct keyboard shortcuts
 // navigator.platform is deprecated but we provide a fallback
-const isMacOS = /Mac/i.test(navigator.userAgentData?.platform || navigator.platform || '');
+const extendedNavigator = navigator as ExtendedNavigator;
+const isMacOS = /Mac/i.test(extendedNavigator.userAgentData?.platform || navigator.platform || '');
 const KEYBOARD_SHORTCUTS = Object.freeze({
   qualityDown: isMacOS ? '⌘ + ⇧ + 1' : 'Ctrl + Shift + 1',
   qualityUp: isMacOS ? '⌘ + ⇧ + 2' : 'Ctrl + Shift + 2'
@@ -33,14 +69,14 @@ const SELECTORS = Object.freeze({
 });
 
 const RETRY_DELAY = 1000;
-const EXTENSION_NAME = 'YouTube Quality Shortcut';
+const EXTENSION_NAME_CONTENT = 'YouTube Quality Shortcut';
 
 /**
  * Dynamically injects the control script into the page
- * @param {string} scriptPath - Path to the script to inject
- * @returns {Promise} - Resolves when script is loaded
+ * @param scriptPath - Path to the script to inject
+ * @returns Promise that resolves when script is loaded
  */
-async function injectControlScript(scriptPath) {
+async function injectControlScript(scriptPath: string): Promise<void> {
   if (controlScriptInitialized) {
     return Promise.resolve();
   }
@@ -57,7 +93,7 @@ async function injectControlScript(scriptPath) {
       }, { once: true });
       
       script.addEventListener('error', () => {
-        reject(new Error(`Failed to load ${EXTENSION_NAME} control script`));
+        reject(new Error(`Failed to load ${EXTENSION_NAME_CONTENT} control script`));
       }, { once: true });
       
       document.body.appendChild(script);
@@ -70,7 +106,13 @@ async function injectControlScript(scriptPath) {
 /**
  * Listens for keyboard commands from the service worker or popup
  */
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((
+  request: ChromeMessage, 
+  _sender: chrome.runtime.MessageSender, 
+  sendResponse: (response: ChromeResponse) => void
+): boolean => {
+  console.log(`${EXTENSION_NAME_CONTENT}: Received message:`, request);
+  
   // Handle quality info request from popup
   if (request.command === 'get_quality_info') {
     getYouTubeQualityInfo()
@@ -82,17 +124,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
       })
       .catch(error => {
-        console.error(`${EXTENSION_NAME}:`, error);
+        console.error(`${EXTENSION_NAME_CONTENT}:`, error);
         sendResponse({ success: false, error: error.message });
       });
     return true;
   }
   
   // Handle specific quality setting or other command
-  injectControlScript(chrome.runtime.getURL('./control.js'))
+  injectControlScript(chrome.runtime.getURL('./dist/control.js'))
     .then(() => {
       // Forward the command to the injected script
-      let eventDetail = { command: request.command };
+      let eventDetail: { command: string; quality?: string } = { command: request.command };
       
       // Add quality parameter for specific quality setting
       if (request.command === 'set_specific_quality' && request.quality) {
@@ -130,7 +172,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     })
     .catch(error => {
-      console.error(`${EXTENSION_NAME}:`, error);
+      console.error(`${EXTENSION_NAME_CONTENT}:`, error);
       sendResponse({ success: false, error: error.message });
     });
   
@@ -140,22 +182,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 /**
  * Gets the current YouTube video quality information
- * @returns {Promise<Object>} Information about current quality and available qualities
+ * @returns Information about current quality and available qualities
  */
-function getYouTubeQualityInfo() {
+function getYouTubeQualityInfo(): Promise<QualityResponse> {
   return new Promise((resolve, reject) => {
     try {
       // First make sure we've injected the control script
-      injectControlScript(chrome.runtime.getURL('./control.js'))
+      injectControlScript(chrome.runtime.getURL('./dist/control.js'))
         .then(() => {
           // Create a one-time event to get quality info from the page
           const requestId = Date.now().toString();
           
           // Create a listener for the response
-          const qualityInfoListener = event => {
+          const qualityInfoListener = (event: CustomEvent): void => {
             if (event.detail && event.detail.requestId === requestId) {
-              document.removeEventListener('qualityInfoResponse', qualityInfoListener);
+              document.removeEventListener('qualityInfoResponse', qualityInfoListener as EventListener);
               resolve({
+                success: true,
                 currentQuality: event.detail.currentQuality,
                 availableQualities: event.detail.availableQualities
               });
@@ -163,7 +206,7 @@ function getYouTubeQualityInfo() {
           };
           
           // Add the listener
-          document.addEventListener('qualityInfoResponse', qualityInfoListener);
+          document.addEventListener('qualityInfoResponse', qualityInfoListener as EventListener);
           
           // Dispatch request to the injected script
           const event = new CustomEvent('getQualityInfo', { 
@@ -173,7 +216,7 @@ function getYouTubeQualityInfo() {
           
           // Set a timeout in case the page doesn't respond
           setTimeout(() => {
-            document.removeEventListener('qualityInfoResponse', qualityInfoListener);
+            document.removeEventListener('qualityInfoResponse', qualityInfoListener as EventListener);
             reject(new Error('Timed out waiting for quality info'));
           }, 1000);
         })
@@ -189,7 +232,7 @@ function getYouTubeQualityInfo() {
 /**
  * Sets up mutation observer to detect when YouTube's shortcut dialog opens
  */
-function observeYouTubeShortcutDialog() {
+function observeYouTubeShortcutDialog(): void {
   if (dialogObserverActive) return;
   
   const container = document.querySelector(SELECTORS.popupContainer);
@@ -203,14 +246,14 @@ function observeYouTubeShortcutDialog() {
   dialogObserverActive = true;
   
   // Create an observer instance with optimal configuration
-  const containerObserver = new MutationObserver((mutations) => {
+  const containerObserver = new MutationObserver((mutations: MutationRecord[]) => {
     for (const { type, addedNodes } of mutations) {
       if (type !== 'childList') continue;
       
-      for (const node of addedNodes) {
-        if (node.nodeName === SELECTORS.dialogElement && !node.observed) {
-          node.observed = true;
-          watchForDialogVisibility(node);
+      for (const node of Array.from(addedNodes)) {
+        if (node.nodeName === SELECTORS.dialogElement && !(node as any).observed) {
+          (node as any).observed = true;
+          watchForDialogVisibility(node as HTMLElement);
           containerObserver.disconnect();
           dialogObserverActive = false;
           break;
@@ -228,10 +271,10 @@ function observeYouTubeShortcutDialog() {
 
 /**
  * Watches for the dialog to become visible
- * @param {HTMLElement} dialogElement - The YouTube shortcut dialog element
+ * @param dialogElement - The YouTube shortcut dialog element
  */
-function watchForDialogVisibility(dialogElement) {
-  const styleObserver = new MutationObserver((mutations) => {
+function watchForDialogVisibility(dialogElement: HTMLElement): void {
+  const styleObserver = new MutationObserver((mutations: MutationRecord[]) => {
     // Use for...of instead of for...in for better performance with arrays
     for (const mutation of mutations) {
       if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
@@ -259,18 +302,18 @@ function watchForDialogVisibility(dialogElement) {
 /**
  * Adds our custom shortcuts to YouTube's keyboard shortcut guide
  */
-function addQualityShortcutsToGuide() {
+function addQualityShortcutsToGuide(): void {
   try {
     const dialog = document.querySelector(SELECTORS.dialogScrollable);
     if (!dialog) return;
     
-    const sectionRenderers = dialog.querySelectorAll(SELECTORS.sectionRenderer);
+    const sectionRenderers = Array.from(dialog.querySelectorAll(SELECTORS.sectionRenderer) as NodeListOf<Element>);
     if (!sectionRenderers.length) return;
     
     // Find the "General" section to append our shortcuts
-    const generalSection = Array.from(sectionRenderers).find(section => {
+    const generalSection = sectionRenderers.find(section => {
       const titleDiv = section.querySelector(SELECTORS.subTitle);
-      return titleDiv?.textContent.toLowerCase() === 'general';
+      return titleDiv?.textContent?.toLowerCase() === 'general';
     });
     
     if (!generalSection) return;
@@ -285,22 +328,22 @@ function addQualityShortcutsToGuide() {
     const fragment = document.createDocumentFragment();
     
     // Create section title
-    const customSectionTitle = existingSubtitleDiv.cloneNode(false);
-    customSectionTitle.textContent = EXTENSION_NAME;
+    const customSectionTitle = existingSubtitleDiv.cloneNode(false) as HTMLElement;
+    customSectionTitle.textContent = EXTENSION_NAME_CONTENT;
     fragment.appendChild(customSectionTitle);
     
     // Create options container
-    const customOptionsDiv = existingOptionsDiv.cloneNode(false);
+    const customOptionsDiv = existingOptionsDiv.cloneNode(false) as HTMLElement;
     
     // Create our shortcut entries
     const qualityUpOption = createShortcutEntry(
-      existingShortcutOption, 
+      existingShortcutOption as HTMLElement, 
       'Quality Up', 
       KEYBOARD_SHORTCUTS.qualityUp
     );
     
     const qualityDownOption = createShortcutEntry(
-      existingShortcutOption, 
+      existingShortcutOption as HTMLElement, 
       'Quality Down', 
       KEYBOARD_SHORTCUTS.qualityDown
     );
@@ -313,7 +356,7 @@ function addQualityShortcutsToGuide() {
     generalSection.appendChild(fragment);
     
   } catch (error) {
-    console.error(`${EXTENSION_NAME}: Failed to modify keyboard shortcut guide`, error);
+    console.error(`${EXTENSION_NAME_CONTENT}: Failed to modify keyboard shortcut guide`, error);
     // Reset the flag so we can try again if the dialog reopens
     shortcutGuideModified = false;
   }
@@ -321,16 +364,16 @@ function addQualityShortcutsToGuide() {
 
 /**
  * Creates a keyboard shortcut entry for the YouTube shortcuts dialog
- * @param {HTMLElement} template - The template element to clone
- * @param {string} labelText - The shortcut description
- * @param {string} hotkeyText - The keyboard shortcut
- * @returns {HTMLElement} The created shortcut entry
+ * @param template - The template element to clone
+ * @param labelText - The shortcut description
+ * @param hotkeyText - The keyboard shortcut
+ * @returns The created shortcut entry
  */
-function createShortcutEntry(template, labelText, hotkeyText) {
-  const shortcutEntry = template.cloneNode(true);
+function createShortcutEntry(template: HTMLElement, labelText: string, hotkeyText: string): HTMLElement {
+  const shortcutEntry = template.cloneNode(true) as HTMLElement;
   
-  const labelElement = shortcutEntry.querySelector(SELECTORS.label);
-  const hotkeyElement = shortcutEntry.querySelector(SELECTORS.hotkey);
+  const labelElement = shortcutEntry.querySelector(SELECTORS.label) as HTMLElement;
+  const hotkeyElement = shortcutEntry.querySelector(SELECTORS.hotkey) as HTMLElement;
   
   if (labelElement) labelElement.textContent = labelText;
   if (hotkeyElement) hotkeyElement.textContent = hotkeyText;
@@ -339,6 +382,8 @@ function createShortcutEntry(template, labelText, hotkeyText) {
 }
 
 // Initialize observers when the content script loads
+console.log(`${EXTENSION_NAME_CONTENT}: Content script loaded on`, window.location.href);
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', observeYouTubeShortcutDialog);
 } else {

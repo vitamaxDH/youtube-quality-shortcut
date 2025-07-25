@@ -6,8 +6,45 @@
  * between available video resolutions.
  */
 
+// Types for YouTube player
+interface YouTubePlayer extends HTMLElement {
+  getAvailableQualityLevels(): string[];
+  getPlaybackQuality(): string;
+  setPlaybackQualityRange(quality: string): void;
+}
+
+interface QualityInfo {
+  id: string;
+  label: string;
+  tag?: string;
+}
+
+interface ControlEventDetail {
+  command: string;
+  quality?: string;
+}
+
+interface QualityInfoEventDetail {
+  requestId: string;
+}
+
+interface QualityResponseEventDetail {
+  requestId: string;
+  currentQuality: QualityInfo;
+  availableQualities: QualityInfo[];
+}
+
+interface TrustedTypesPolicy {
+  createHTML(input: string): string;
+}
+
+interface TrustedTypes {
+  createPolicy(name: string, policy: { createHTML: (input: string) => string }): TrustedTypesPolicy;
+}
+
 // Listen for commands from content script
-document.addEventListener('controlEvent', ({detail}) => {
+document.addEventListener('controlEvent', (event: Event): void => {
+  const { detail } = event as CustomEvent<ControlEventDetail>;
   const { command } = detail;
   
   // Handle set_specific_quality command
@@ -33,21 +70,22 @@ document.addEventListener('controlEvent', ({detail}) => {
 });
 
 // Listen for quality info requests
-document.addEventListener('getQualityInfo', (event) => {
-  const requestId = event.detail.requestId;
+document.addEventListener('getQualityInfo', (event: Event): void => {
+  const customEvent = event as CustomEvent<QualityInfoEventDetail>;
+  const requestId = customEvent.detail.requestId;
   sendQualityInfo(requestId);
 });
 
 // Create a policy for trusted HTML (security best practice)
-const policy = window.trustedTypes?.createPolicy('youtube-quality-policy', {
-  createHTML: (input) => input
-}) || { createHTML: (input) => input };
+const policy: TrustedTypesPolicy = (globalThis as any).trustedTypes?.createPolicy('youtube-quality-policy', {
+  createHTML: (input: string) => input
+}) || { createHTML: (input: string) => input };
 
 // Track timeout for UI feedback
-let qualityChangeTimeoutId;
+let qualityChangeTimeoutId: number | null = null;
 
 // Map YouTube quality IDs to human-readable labels and tags
-const RESOLUTION_MAP = Object.freeze({
+const RESOLUTION_MAP: Record<string, { label: string; tag?: string }> = Object.freeze({
   tiny: { label: '144p' },
   small: { label: '240p' },
   medium: { label: '360p' },
@@ -65,14 +103,14 @@ const QUALITY_DISPLAY_DURATION = 700;
 
 /**
  * Sends the current quality and available quality levels back to the content script
- * @param {string} requestId - ID of the request to match response
+ * @param requestId - ID of the request to match response
  */
-function sendQualityInfo(requestId) {
-  const player = document.getElementById('movie_player');
+function sendQualityInfo(requestId: string): void {
+  const player = document.getElementById('movie_player') as YouTubePlayer | null;
   if (!player?.getAvailableQualityLevels) {
     // Send empty response if player not available
-    document.dispatchEvent(new CustomEvent('qualityInfoResponse', {
-      detail: { requestId, currentQuality: null, availableQualities: [] }
+    document.dispatchEvent(new CustomEvent<QualityResponseEventDetail>('qualityInfoResponse', {
+      detail: { requestId, currentQuality: { id: '', label: '' }, availableQualities: [] }
     }));
     return;
   }
@@ -83,29 +121,29 @@ function sendQualityInfo(requestId) {
     const availableQualities = player.getAvailableQualityLevels();
     
     // Format the current quality with its label
-    let formattedCurrentQuality = currentQuality;
+    let formattedCurrentQuality: QualityInfo = { id: currentQuality, label: currentQuality };
     if (RESOLUTION_MAP[currentQuality]) {
       formattedCurrentQuality = {
         id: currentQuality,
         label: RESOLUTION_MAP[currentQuality].label,
-        tag: RESOLUTION_MAP[currentQuality].tag || null
+        ...(RESOLUTION_MAP[currentQuality].tag && { tag: RESOLUTION_MAP[currentQuality].tag })
       };
     }
     
     // Format the available qualities with their labels
-    const formattedAvailableQualities = availableQualities.map(q => {
+    const formattedAvailableQualities: QualityInfo[] = availableQualities.map(q => {
       if (RESOLUTION_MAP[q]) {
         return {
           id: q,
           label: RESOLUTION_MAP[q].label,
-          tag: RESOLUTION_MAP[q].tag || null
+          ...(RESOLUTION_MAP[q].tag && { tag: RESOLUTION_MAP[q].tag })
         };
       }
-      return { id: q, label: q, tag: null };
+      return { id: q, label: q };
     });
     
     // Send the response
-    document.dispatchEvent(new CustomEvent('qualityInfoResponse', {
+    document.dispatchEvent(new CustomEvent<QualityResponseEventDetail>('qualityInfoResponse', {
       detail: {
         requestId,
         currentQuality: formattedCurrentQuality,
@@ -114,18 +152,18 @@ function sendQualityInfo(requestId) {
     }));
   } catch (error) {
     console.error('YouTube Quality Shortcut: Error getting quality info', error);
-    document.dispatchEvent(new CustomEvent('qualityInfoResponse', {
-      detail: { requestId, currentQuality: null, availableQualities: [] }
+    document.dispatchEvent(new CustomEvent<QualityResponseEventDetail>('qualityInfoResponse', {
+      detail: { requestId, currentQuality: { id: '', label: '' }, availableQualities: [] }
     }));
   }
 }
 
 /**
  * Change video quality up or down and show visual feedback
- * @param {boolean} increase - True to increase quality, false to decrease
+ * @param increase - True to increase quality, false to decrease
  */
-function changeQuality(increase) {
-  const player = document.getElementById('movie_player');
+function changeQuality(increase: boolean): void {
+  const player = document.getElementById('movie_player') as YouTubePlayer | null;
   if (!player?.getAvailableQualityLevels) {
     console.error('YouTube Quality Shortcut: Player not found or API not available');
     return;
@@ -176,14 +214,14 @@ function changeQuality(increase) {
 
 /**
  * Display on-screen indicator showing the newly selected quality
- * @param {string} quality - The YouTube quality ID
+ * @param quality - The YouTube quality ID
  */
-function showQualityChangeIndicator(quality) {
+function showQualityChangeIndicator(quality: string): void {
   try {
-    const bezelTxtWrapper = document.querySelector('.ytp-bezel-text-wrapper');
-    const bezelTextElement = document.querySelector('.ytp-bezel-text');
-    const wrapperParent = bezelTxtWrapper?.parentNode;
-    const bezelTxtIcon = document.querySelector('.ytp-bezel-icon');
+    const bezelTxtWrapper = document.querySelector('.ytp-bezel-text-wrapper') as HTMLElement | null;
+    const bezelTextElement = document.querySelector('.ytp-bezel-text') as HTMLElement | null;
+    const wrapperParent = bezelTxtWrapper?.parentNode as HTMLElement | null;
+    const bezelTxtIcon = document.querySelector('.ytp-bezel-icon') as HTMLElement | null;
     
     if (!bezelTextElement || !wrapperParent || !bezelTxtIcon) return;
     
@@ -211,7 +249,7 @@ function showQualityChangeIndicator(quality) {
     }
 
     // Hide the indicator after a short delay
-    qualityChangeTimeoutId = setTimeout(() => {
+    qualityChangeTimeoutId = window.setTimeout(() => {
       wrapperParent.style.display = 'none';
       bezelTxtIcon.style.display = 'block';
       qualityChangeTimeoutId = null;
@@ -223,10 +261,10 @@ function showQualityChangeIndicator(quality) {
 
 /**
  * Sets video quality to either lowest or highest available resolution
- * @param {boolean} highest - True for highest quality, false for lowest
+ * @param highest - True for highest quality, false for lowest
  */
-function setQualityExtreme(highest) {
-  const player = document.getElementById('movie_player');
+function setQualityExtreme(highest: boolean): void {
+  const player = document.getElementById('movie_player') as YouTubePlayer | null;
   if (!player?.getAvailableQualityLevels) {
     console.error('YouTube Quality Shortcut: Player not found or API not available');
     return;
@@ -265,10 +303,10 @@ function setQualityExtreme(highest) {
 
 /**
  * Set a specific quality level by its ID
- * @param {string} qualityId - The YouTube quality ID to set
+ * @param qualityId - The YouTube quality ID to set
  */
-function setSpecificQuality(qualityId) {
-  const player = document.getElementById('movie_player');
+function setSpecificQuality(qualityId: string): void {
+  const player = document.getElementById('movie_player') as YouTubePlayer | null;
   if (!player?.getAvailableQualityLevels) {
     console.error('YouTube Quality Shortcut: Player not found or API not available');
     return;

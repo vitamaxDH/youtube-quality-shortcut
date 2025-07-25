@@ -1,23 +1,28 @@
 {
   "name": "YouTube Quality ShortCut",
   "manifest_version": 3,
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Control You Tube video quality with keyboard shortcuts.",
   "background": {
-    "service_worker": "service-worker.js"
+    "service_worker": "dist/service-worker.js"
   },
   "content_scripts": [
     {
       "matches": [
-        "*://www.youtube.com/*"
+        "*://www.youtube.com/*",
+        "*://youtube.com/*"
       ],
       "js": [
-        "content.js"
+        "dist/content.js"
       ]
     }
   ],
+  "permissions": [
+    "activeTab"
+  ],
   "host_permissions": [
-    "https://www.youtube.com/*"
+    "https://www.youtube.com/*",
+    "https://youtube.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -68,8 +73,8 @@
         "<all_urls>"
       ],
       "resources": [
-        "control.js",
-        "popup.js"
+        "dist/control.js",
+        "dist/popup.js"
       ]
     }
   ]

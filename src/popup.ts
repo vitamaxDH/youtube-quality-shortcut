@@ -1,5 +1,5 @@
 // Quality control constants and state
-const QUALITY_ORDER = [
+const QUALITY_ORDER: readonly string[] = [
   'highres', // 8K
   'hd2880',  // 5K
   'hd2160',  // 4K
@@ -12,20 +12,42 @@ const QUALITY_ORDER = [
   'tiny'     // 144p
 ];
 
+// Types
+interface QualityInfo {
+  id: string;
+  label: string;
+  tag?: string;
+}
+
+interface QualityResponse {
+  success: boolean;
+  currentQuality?: QualityInfo;
+  availableQualities?: QualityInfo[];
+  newQuality?: QualityInfo;
+  error?: string;
+}
+
+interface ChromeMessage {
+  command: string;
+  quality?: string;
+}
+
+type MessageType = 'info' | 'success' | 'error' | 'warning';
+
 // Global state
-let activeTabId = null;
-let availableQualities = [];
-let currentQuality = null;
+let activeTabId: number | null = null;
+let availableQualities: QualityInfo[] = [];
+let currentQuality: QualityInfo | null = null;
 let qualitySliderManuallyChanged = false;
-let qualityPollIntervalId = null;
+let qualityPollIntervalId: number | null = null;
 const POLL_INTERVAL = 1000; // Check for quality changes every 1 second
 
 // DOM Elements
-const qualitySlider = document.getElementById('qualitySlider');
-const currentQualityDisplay = document.getElementById('currentQuality');
-const lowestQualityRadio = document.getElementById('lowestQuality');
-const highestQualityRadio = document.getElementById('highestQuality');
-const statusMessage = document.getElementById('statusMessage');
+const qualitySlider = document.getElementById('qualitySlider') as HTMLInputElement;
+const currentQualityDisplay = document.getElementById('currentQuality') as HTMLElement;
+const lowestQualityRadio = document.getElementById('lowestQuality') as HTMLInputElement;
+const highestQualityRadio = document.getElementById('highestQuality') as HTMLInputElement;
+const statusMessage = document.getElementById('statusMessage') as HTMLElement;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', initializePopup);
@@ -33,7 +55,7 @@ document.addEventListener('DOMContentLoaded', initializePopup);
 /**
  * Initialize the popup interface
  */
-async function initializePopup() {
+async function initializePopup(): Promise<void> {
   try {
     // Get the current active tab
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -43,10 +65,10 @@ async function initializePopup() {
     }
 
     const activeTab = tabs[0];
-    activeTabId = activeTab.id;
+    activeTabId = activeTab.id!;
 
     // Check if the current page is a YouTube video
-    if (!activeTab.url || !activeTab.url.includes('youtube.com/watch')) {
+    if (!activeTab.url || !(activeTab.url.includes('youtube.com/watch') || activeTab.url.includes('www.youtube.com/watch'))) {
       showMessage('Not a YouTube video page', 'warning');
       disableControls();
       return;
@@ -72,10 +94,10 @@ async function initializePopup() {
 /**
  * Start polling for quality changes
  */
-function startQualityPolling() {
+function startQualityPolling(): void {
   if (qualityPollIntervalId) return; // Already polling
   
-  qualityPollIntervalId = setInterval(() => {
+  qualityPollIntervalId = window.setInterval(() => {
     if (activeTabId) {
       refreshQualityInfo();
     }
@@ -85,7 +107,7 @@ function startQualityPolling() {
 /**
  * Stop polling for quality changes
  */
-function stopQualityPolling() {
+function stopQualityPolling(): void {
   if (qualityPollIntervalId) {
     clearInterval(qualityPollIntervalId);
     qualityPollIntervalId = null;
@@ -95,11 +117,13 @@ function stopQualityPolling() {
 /**
  * Refresh quality information without changing the UI status message
  */
-function refreshQualityInfo() {
+function refreshQualityInfo(): void {
+  if (!activeTabId) return;
+  
   chrome.tabs.sendMessage(
     activeTabId,
     { command: 'get_quality_info' },
-    (response) => {
+    (response: QualityResponse) => {
       const error = chrome.runtime.lastError;
       if (error || !response || !response.success) {
         return; // Silently ignore errors during polling
@@ -113,7 +137,7 @@ function refreshQualityInfo() {
 /**
  * Update the quality display without changing the status message
  */
-function updateQualityDisplay(response) {
+function updateQualityDisplay(response: QualityResponse): void {
   if (!response.availableQualities || response.availableQualities.length === 0) {
     return;
   }
@@ -133,7 +157,7 @@ function updateQualityDisplay(response) {
       return QUALITY_ORDER.indexOf(a.id) - QUALITY_ORDER.indexOf(b.id);
     });
     
-  currentQuality = response.currentQuality;
+  currentQuality = response.currentQuality || null;
   
   // Reset manual change flag since this is an external change
   qualitySliderManuallyChanged = false;
@@ -146,7 +170,7 @@ function updateQualityDisplay(response) {
 /**
  * Initialize control event listeners
  */
-function initializeControls() {
+function initializeControls(): void {
   // Slider input event (while dragging)
   qualitySlider.addEventListener('input', handleSliderInput);
   
@@ -170,7 +194,7 @@ function initializeControls() {
 /**
  * Handle slider input (while dragging)
  */
-function handleSliderInput() {
+function handleSliderInput(): void {
   if (!availableQualities.length) return;
   
   qualitySliderManuallyChanged = true;
@@ -180,7 +204,7 @@ function handleSliderInput() {
 /**
  * Handle slider change (after releasing)
  */
-function handleSliderChange() {
+function handleSliderChange(): void {
   if (!availableQualities.length) return;
   
   const selectedIndex = getSelectedQualityIndex();
@@ -194,7 +218,7 @@ function handleSliderChange() {
 /**
  * Get the currently selected quality index based on slider position
  */
-function getSelectedQualityIndex() {
+function getSelectedQualityIndex(): number {
   const sliderPercentage = parseFloat(qualitySlider.value);
   
   // Map percentage to available qualities (0 = lowest quality, 100 = highest quality)
@@ -211,7 +235,7 @@ function getSelectedQualityIndex() {
 /**
  * Update the quality display based on the current slider position
  */
-function updateQualityDisplayFromSlider() {
+function updateQualityDisplayFromSlider(): void {
   if (!availableQualities.length) return;
   
   const selectedIndex = getSelectedQualityIndex();
@@ -229,11 +253,13 @@ function updateQualityDisplayFromSlider() {
 /**
  * Get quality information from the YouTube player
  */
-function getQualityInfo() {
+function getQualityInfo(): void {
+  if (!activeTabId) return;
+  
   chrome.tabs.sendMessage(
     activeTabId,
     { command: 'get_quality_info' },
-    (response) => {
+    (response: QualityResponse) => {
       const error = chrome.runtime.lastError;
       if (error) {
         console.error('Error getting quality info:', error.message);
@@ -254,7 +280,7 @@ function getQualityInfo() {
 /**
  * Handle the quality info response from content script
  */
-function handleQualityInfoResponse(response) {
+function handleQualityInfoResponse(response: QualityResponse): void {
   if (!response.availableQualities || response.availableQualities.length === 0) {
     showMessage('No quality levels available', 'warning');
     disableControls();
@@ -268,7 +294,7 @@ function handleQualityInfoResponse(response) {
       return QUALITY_ORDER.indexOf(a.id) - QUALITY_ORDER.indexOf(b.id);
     });
     
-  currentQuality = response.currentQuality;
+  currentQuality = response.currentQuality || null;
   
   // Enable controls
   enableControls();
@@ -286,17 +312,17 @@ function handleQualityInfoResponse(response) {
 /**
  * Set the slider position to match the current quality
  */
-function setSliderToCurrentQuality() {
+function setSliderToCurrentQuality(): void {
   if (!availableQualities.length || !currentQuality) return;
   
   // Find index of current quality in available qualities
-  const currentIndex = availableQualities.findIndex(q => q.id === currentQuality.id);
+  const currentIndex = availableQualities.findIndex(q => q.id === currentQuality!.id);
   
   if (currentIndex >= 0 && !qualitySliderManuallyChanged) {
     // Map index to slider percentage (0 = lowest quality, 100 = highest quality)
     // This is reversed from the previous implementation
     const sliderPercentage = 100 - ((currentIndex / (availableQualities.length - 1)) * 100);
-    qualitySlider.value = sliderPercentage;
+    qualitySlider.value = sliderPercentage.toString();
     
     // Update display
     let qualityText = currentQuality.label;
@@ -310,7 +336,7 @@ function setSliderToCurrentQuality() {
 /**
  * Update radio button selection based on current quality
  */
-function updateRadioButtons() {
+function updateRadioButtons(): void {
   if (!availableQualities.length || !currentQuality) return;
   
   // Check if current quality is highest or lowest
@@ -324,7 +350,7 @@ function updateRadioButtons() {
 /**
  * Enable quality controls
  */
-function enableControls() {
+function enableControls(): void {
   qualitySlider.disabled = false;
   lowestQualityRadio.disabled = false;
   highestQualityRadio.disabled = false;
@@ -333,7 +359,7 @@ function enableControls() {
 /**
  * Disable quality controls
  */
-function disableControls() {
+function disableControls(): void {
   qualitySlider.disabled = true;
   lowestQualityRadio.disabled = true;
   highestQualityRadio.disabled = true;
@@ -343,15 +369,17 @@ function disableControls() {
 /**
  * Send command to content script
  */
-function sendCommand(command, params = {}) {
-  const message = { command, ...params };
+function sendCommand(command: string, params: Record<string, any> = {}): void {
+  if (!activeTabId) return;
+  
+  const message: ChromeMessage = { command, ...params };
   
   showMessage('Changing quality...', 'info');
   
   chrome.tabs.sendMessage(
     activeTabId,
     message,
-    (response) => {
+    (response: QualityResponse) => {
       const error = chrome.runtime.lastError;
       if (error) {
         console.error('Error sending command:', error.message);
@@ -380,8 +408,8 @@ function sendCommand(command, params = {}) {
 /**
  * Show a status message
  */
-function showMessage(message, type = 'info') {
+function showMessage(message: string, type: MessageType = 'info'): void {
   statusMessage.textContent = message;
   statusMessage.className = 'status-message';
   statusMessage.classList.add(`status-${type}`);
-} 
+}
