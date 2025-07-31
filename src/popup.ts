@@ -1,3 +1,12 @@
+// Load PicoCSS dynamically to avoid CSP violations
+const picoPreload = document.getElementById('picocss-preload') as HTMLLinkElement;
+if (picoPreload) {
+    picoPreload.onload = function() {
+        picoPreload.onload = null;
+        picoPreload.rel = 'stylesheet';
+    };
+}
+
 // Quality control constants and state
 const QUALITY_ORDER: readonly string[] = [
   'highres', // 8K
@@ -189,6 +198,22 @@ function initializeControls(): void {
       sendCommand('highest_quality');
     }
   });
+  
+  // Coffee button event
+  setupCoffeeButton();
+}
+
+/**
+ * Setup coffee button event listener
+ */
+function setupCoffeeButton(): void {
+  const coffeeBtn = document.getElementById('coffeeBtn');
+  if (coffeeBtn) {
+    coffeeBtn.addEventListener('click', () => {
+      // Open Buy Me a Coffee page in new tab
+      window.open('https://buymeacoffee.com/vitamaxdh', '_blank');
+    });
+  }
 }
 
 /**
