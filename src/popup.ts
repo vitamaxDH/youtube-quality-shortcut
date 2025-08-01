@@ -1,10 +1,10 @@
 // Load PicoCSS dynamically to avoid CSP violations
 const picoPreload = document.getElementById('picocss-preload') as HTMLLinkElement;
 if (picoPreload) {
-    picoPreload.onload = function() {
-        picoPreload.onload = null;
+    picoPreload.addEventListener('load', function handlePicoLoad() {
+        picoPreload.removeEventListener('load', handlePicoLoad);
         picoPreload.rel = 'stylesheet';
-    };
+    });
 }
 
 // Quality control constants and state

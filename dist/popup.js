@@ -1,4 +1,11 @@
 "use strict";
+const picoPreload = document.getElementById('picocss-preload');
+if (picoPreload) {
+    picoPreload.addEventListener('load', function handlePicoLoad() {
+        picoPreload.removeEventListener('load', handlePicoLoad);
+        picoPreload.rel = 'stylesheet';
+    });
+}
 const QUALITY_ORDER = [
     'highres',
     'hd2880',
@@ -105,6 +112,15 @@ function initializeControls() {
             sendCommand('highest_quality');
         }
     });
+    setupCoffeeButton();
+}
+function setupCoffeeButton() {
+    const coffeeBtn = document.getElementById('coffeeBtn');
+    if (coffeeBtn) {
+        coffeeBtn.addEventListener('click', () => {
+            window.open('https://buymeacoffee.com/vitamaxdh', '_blank');
+        });
+    }
 }
 function handleSliderInput() {
     if (!availableQualities.length)
