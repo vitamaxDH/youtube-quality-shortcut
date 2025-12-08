@@ -74,16 +74,19 @@ header {
 /* Quality Card */
 .quality-card {
     background: var(--surface);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    /* Remove bottom radius */
     padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 24px;
+    padding-bottom: 24px;
+    /* Ensure padding is consistent */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    /* Subtle divider */
 }
 
 .current-quality-display {
-    display: flex;
-    justify-content: space-between;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -120,11 +123,9 @@ input[type=range] {
     border-radius: 2px;
     outline: none;
     cursor: pointer;
-    cursor: pointer;
     z-index: 2;
 }
 
-/* Custom markers overlay */
 /* Custom markers overlay */
 .slider-markers {
     position: absolute;
@@ -179,8 +180,6 @@ input[type=range] {
 .slider-tooltip.visible {
     opacity: 1;
 }
-
-/* Active/Pass markers could be styled if we had logic, but simple dots are fine */
 
 input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -244,8 +243,10 @@ input[type=range]:active::-webkit-slider-thumb {
 /* Shortcuts */
 .shortcuts-list {
     background: var(--surface);
-    border-radius: var(--radius-lg);
-    padding: 16px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    /* Remove top radius */
+    padding: 16px 24px;
+    /* Match horizontal padding of quality card */
     display: flex;
     flex-direction: column;
     gap: 12px;
