@@ -38,6 +38,7 @@ const lowestQualityRadio = document.getElementById('lowestQuality') as HTMLInput
 const highestQualityRadio = document.getElementById('highestQuality') as HTMLInputElement;
 const statusMessage = document.getElementById('statusMessage') as HTMLElement;
 const qualityMarkers = document.getElementById('quality-markers') as HTMLElement;
+const sliderTooltip = document.getElementById('slider-tooltip') as HTMLElement;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', initializePopup);
@@ -188,6 +189,62 @@ function initializeControls(): void {
 
   // Coffee button event
   setupCoffeeButton();
+
+  // Slider hover events for tooltip
+  qualitySlider.addEventListener('mousemove', handleSliderHover);
+  qualitySlider.addEventListener('mouseleave', () => {
+    sliderTooltip.classList.remove('visible');
+  });
+}
+
+/**
+ * Handle slider hover to show tooltip
+ */
+function handleSliderHover(e: MouseEvent): void {
+  if (!availableQualities.length) return;
+
+  const rect = qualitySlider.getBoundingClientRect();
+  const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+  const percent = x / rect.width;
+
+  // Calculate the "step" closer to the mouse
+  // Slider values are 0 to max
+  const max = parseInt(qualitySlider.max);
+  // The 'value' corresponding to this percentage
+  // Note: range inputs in browsers might have slight padding for the thumb, 
+  // but linear approximation is usually close enough for this UI
+  const rawValue = percent * max;
+  const roundedValue = Math.round(rawValue);
+
+  // Map back to quality index
+  // Logic from getSelectedQualityIndex but inverted
+  // index = (availableQualities.length - 1) - sliderValue
+  const qualityIndex = (availableQualities.length - 1) - roundedValue;
+  const quality = availableQualities[qualityIndex];
+
+  if (quality) {
+    // Update tooltip
+    let text = quality.label;
+    // Add tag if small enough or useful? Maybe just label is cleaner for tooltip
+    if (quality.tag && quality.tag !== 'HD') { // Skip generic HD tag in tooltip to save space if needed
+      text += ` ${quality.tag}`;
+    }
+    sliderTooltip.textContent = text;
+
+    // Position tooltip
+    // We want it centered on the step position, not just the mouse cursor
+    // The step position percent is roundedValue / max
+    const stepPercent = (roundedValue / max) * 100;
+
+    // Adjust visual position (thumb width is 16px, so there's an 8px offset area)
+    // Standard input range: the value center moves from ~8px to width-8px
+    // Simple percentage usually feels slightly off at edges without correction
+    // Correction: (percent - 0.5) * thumbWidth * -1 ? 
+    // Let's try raw percent first, it's usually fine for small tooltips
+    sliderTooltip.style.left = `${stepPercent}%`;
+
+    sliderTooltip.classList.add('visible');
+  }
 }
 
 /**

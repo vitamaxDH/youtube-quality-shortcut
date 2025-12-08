@@ -155,6 +155,31 @@ input[type=range] {
     box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
 }
 
+/* Hover Tooltip */
+.slider-tooltip {
+    position: absolute;
+    top: -30px;
+    left: 0;
+    transform: translateX(-50%);
+    background: var(--surface-hover);
+    color: var(--primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    pointer-events: none;
+    opacity: 0;
+    /* Hidden by default */
+    transition: opacity 0.1s;
+    white-space: nowrap;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.slider-tooltip.visible {
+    opacity: 1;
+}
+
 /* Active/Pass markers could be styled if we had logic, but simple dots are fine */
 
 input[type=range]::-webkit-slider-thumb {
