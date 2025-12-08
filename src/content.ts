@@ -104,7 +104,7 @@ chrome.runtime.onMessage.addListener((
   _sender: chrome.runtime.MessageSender,
   sendResponse: (response: ChromeResponse) => void
 ): boolean => {
-  console.log(`${EXTENSION_NAME_CONTENT}: Received message:`, request);
+  // console.debug(`${EXTENSION_NAME_CONTENT}: Received message:`, request);
 
   // Handle quality info request from popup
   if (request.command === 'get_quality_info') {
