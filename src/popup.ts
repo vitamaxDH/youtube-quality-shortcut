@@ -37,7 +37,7 @@ const currentQualityDisplay = document.getElementById('currentQuality') as HTMLE
 const lowestQualityRadio = document.getElementById('lowestQuality') as HTMLInputElement;
 const highestQualityRadio = document.getElementById('highestQuality') as HTMLInputElement;
 const statusMessage = document.getElementById('statusMessage') as HTMLElement;
-const qualityMarkers = document.getElementById('quality-markers') as HTMLDataListElement;
+const qualityMarkers = document.getElementById('quality-markers') as HTMLElement;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', initializePopup);
@@ -274,13 +274,16 @@ function updateQualityMarkers(): void {
   if (!availableQualities.length) return;
 
   // Create markers for each quality level
-  // The slider goes from 0 to length-1
+  // Create markers for each quality level
   for (let i = 0; i < availableQualities.length; i++) {
-    const option = document.createElement('option');
-    option.value = i.toString();
-    // We can add a label, but Chrome mostly just shows the tick
-    // option.label = availableQualities[availableQualities.length - 1 - i].label; 
-    qualityMarkers.appendChild(option);
+    const marker = document.createElement('div');
+    marker.className = 'marker';
+    // Highlight the current quality marker
+    const currentIndex = (availableQualities.length - 1) - parseInt(qualitySlider.value);
+    if (i === currentIndex) {
+      marker.classList.add('active');
+    }
+    qualityMarkers.appendChild(marker);
   }
 }
 
@@ -315,6 +318,9 @@ function getQualityInfo(): void {
  * Handle the quality info response from content script
  */
 function handleQualityInfoResponse(response: QualityResponse): void {
+  // Stop polling once we have successfully received data, as requested
+  stopQualityPolling();
+
   if (!response.availableQualities || response.availableQualities.length === 0) {
     showMessage('No quality levels available', 'warning');
     disableControls();
