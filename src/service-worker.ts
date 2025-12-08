@@ -11,11 +11,7 @@ const ICONS = Object.freeze({
 
 const YOUTUBE_WATCH_PATTERNS = ['youtube.com/watch', 'www.youtube.com/watch'];
 const EXTENSION_NAME_SW = 'YouTube Quality Shortcut';
-
-interface ChromeMessage {
-  command: string;
-  tabId?: number;
-}
+import { ChromeMessage } from './types';
 
 /**
  * Handles keyboard shortcut commands
@@ -27,7 +23,7 @@ chrome.commands.onCommand.addListener((command: string): void => {
         console.debug(`${EXTENSION_NAME_SW}: No active tabs found`);
         return;
       }
-      
+
       const activeTab = tabs[0];
       if (isYouTubeWatchPage(activeTab.url)) {
         const message: ChromeMessage = { command, ...(activeTab.id && { tabId: activeTab.id }) };
@@ -52,15 +48,15 @@ chrome.commands.onCommand.addListener((command: string): void => {
 /**
  * Updates extension icon based on active URL
  */
-chrome.tabs.onUpdated.addListener((tabId: number, changeInfo: chrome.tabs.TabChangeInfo, _tab: chrome.tabs.Tab): void => {
+chrome.tabs.onUpdated.addListener((tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab): void => {
   try {
-    // Only process URL changes
-    if (!changeInfo.url) return;
-    
-    const iconPath = isYouTubeWatchPage(changeInfo.url) ? 
-      ICONS.active : 
+    // Check tab.url instead of changeInfo.url to ensure we catch all updates
+    if (!tab.url) return;
+
+    const iconPath = isYouTubeWatchPage(tab.url) ?
+      ICONS.active :
       ICONS.inactive;
-      
+
     chrome.action.setIcon({
       path: iconPath,
       tabId
@@ -80,6 +76,6 @@ chrome.tabs.onUpdated.addListener((tabId: number, changeInfo: chrome.tabs.TabCha
 function isYouTubeWatchPage(url?: string): boolean {
   // Fast check for invalid URLs
   if (!url || typeof url !== 'string') return false;
-  
+
   return YOUTUBE_WATCH_PATTERNS.some(pattern => url.includes(pattern));
 }

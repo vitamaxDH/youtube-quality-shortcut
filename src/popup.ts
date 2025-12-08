@@ -1,11 +1,5 @@
-// Load PicoCSS dynamically to avoid CSP violations
-const picoPreload = document.getElementById('picocss-preload') as HTMLLinkElement;
-if (picoPreload) {
-    picoPreload.addEventListener('load', function handlePicoLoad() {
-        picoPreload.removeEventListener('load', handlePicoLoad);
-        picoPreload.rel = 'stylesheet';
-    });
-}
+// Popup initialization
+console.log('Popup script loaded');
 
 // Quality control constants and state
 const QUALITY_ORDER: readonly string[] = [
@@ -21,25 +15,11 @@ const QUALITY_ORDER: readonly string[] = [
   'tiny'     // 144p
 ];
 
-// Types
-interface QualityInfo {
-  id: string;
-  label: string;
-  tag?: string;
-}
-
-interface QualityResponse {
-  success: boolean;
-  currentQuality?: QualityInfo;
-  availableQualities?: QualityInfo[];
-  newQuality?: QualityInfo;
-  error?: string;
-}
-
-interface ChromeMessage {
-  command: string;
-  quality?: string;
-}
+import {
+  ChromeMessage,
+  QualityInfo,
+  QualityResponse
+} from './types';
 
 type MessageType = 'info' | 'success' | 'error' | 'warning';
 
@@ -57,6 +37,7 @@ const currentQualityDisplay = document.getElementById('currentQuality') as HTMLE
 const lowestQualityRadio = document.getElementById('lowestQuality') as HTMLInputElement;
 const highestQualityRadio = document.getElementById('highestQuality') as HTMLInputElement;
 const statusMessage = document.getElementById('statusMessage') as HTMLElement;
+const qualityMarkers = document.getElementById('quality-markers') as HTMLDataListElement;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', initializePopup);
@@ -85,13 +66,13 @@ async function initializePopup(): Promise<void> {
 
     // Initialize control event listeners
     initializeControls();
-    
+
     // Get quality information from the YouTube player
     getQualityInfo();
-    
+
     // Set up polling to keep quality information up to date
     startQualityPolling();
-    
+
     // Stop polling when popup closes
     window.addEventListener('unload', stopQualityPolling);
   } catch (error) {
@@ -105,7 +86,7 @@ async function initializePopup(): Promise<void> {
  */
 function startQualityPolling(): void {
   if (qualityPollIntervalId) return; // Already polling
-  
+
   qualityPollIntervalId = window.setInterval(() => {
     if (activeTabId) {
       refreshQualityInfo();
@@ -128,7 +109,7 @@ function stopQualityPolling(): void {
  */
 function refreshQualityInfo(): void {
   if (!activeTabId) return;
-  
+
   chrome.tabs.sendMessage(
     activeTabId,
     { command: 'get_quality_info' },
@@ -137,7 +118,7 @@ function refreshQualityInfo(): void {
       if (error || !response || !response.success) {
         return; // Silently ignore errors during polling
       }
-      
+
       updateQualityDisplay(response);
     }
   );
@@ -150,30 +131,36 @@ function updateQualityDisplay(response: QualityResponse): void {
   if (!response.availableQualities || response.availableQualities.length === 0) {
     return;
   }
-  
+
   // Check if quality has changed
   const newQualityId = response.currentQuality ? response.currentQuality.id : null;
   const oldQualityId = currentQuality ? currentQuality.id : null;
-  
+
   if (newQualityId === oldQualityId) {
     return; // No change in quality
   }
-  
+
   // Store available qualities in order (highest to lowest)
   availableQualities = response.availableQualities
     .filter(q => q.id !== 'auto') // Remove auto quality
     .sort((a, b) => {
       return QUALITY_ORDER.indexOf(a.id) - QUALITY_ORDER.indexOf(b.id);
     });
-    
+
   currentQuality = response.currentQuality || null;
-  
+
   // Reset manual change flag since this is an external change
   qualitySliderManuallyChanged = false;
-  
+
   // Update UI elements
+  // Update slider min/max/step to match available qualities count
+  qualitySlider.max = (availableQualities.length - 1).toString();
+  qualitySlider.step = '1';
+
+  setSliderToCurrentQuality();
   setSliderToCurrentQuality();
   updateRadioButtons();
+  updateQualityMarkers();
 }
 
 /**
@@ -182,23 +169,23 @@ function updateQualityDisplay(response: QualityResponse): void {
 function initializeControls(): void {
   // Slider input event (while dragging)
   qualitySlider.addEventListener('input', handleSliderInput);
-  
+
   // Slider change event (after releasing)
   qualitySlider.addEventListener('change', handleSliderChange);
-  
+
   // Radio button events
   lowestQualityRadio.addEventListener('change', () => {
     if (lowestQualityRadio.checked) {
       sendCommand('lowest_quality');
     }
   });
-  
+
   highestQualityRadio.addEventListener('change', () => {
     if (highestQualityRadio.checked) {
       sendCommand('highest_quality');
     }
   });
-  
+
   // Coffee button event
   setupCoffeeButton();
 }
@@ -207,10 +194,14 @@ function initializeControls(): void {
  * Setup coffee button event listener
  */
 function setupCoffeeButton(): void {
+  // Footer button handler
   const coffeeBtn = document.getElementById('coffeeBtn');
   if (coffeeBtn) {
-    coffeeBtn.addEventListener('click', () => {
-      // Open Buy Me a Coffee page in new tab
+    coffeeBtn.addEventListener('click', (e) => {
+      // For native implementation with <a> tag, we might not need this if target="_blank" works
+      // but in some extension contexts explicit creation is safer.
+      // However, for standard popup, target="_blank" usually works.
+      // We will leave the default behavior but ensure it doesn't fail.
       window.open('https://buymeacoffee.com/vitamaxdh', '_blank');
     });
   }
@@ -221,7 +212,7 @@ function setupCoffeeButton(): void {
  */
 function handleSliderInput(): void {
   if (!availableQualities.length) return;
-  
+
   qualitySliderManuallyChanged = true;
   updateQualityDisplayFromSlider();
 }
@@ -231,10 +222,10 @@ function handleSliderInput(): void {
  */
 function handleSliderChange(): void {
   if (!availableQualities.length) return;
-  
+
   const selectedIndex = getSelectedQualityIndex();
   const qualityId = availableQualities[selectedIndex]?.id;
-  
+
   if (qualityId) {
     sendCommand('set_specific_quality', { quality: qualityId });
   }
@@ -244,17 +235,15 @@ function handleSliderChange(): void {
  * Get the currently selected quality index based on slider position
  */
 function getSelectedQualityIndex(): number {
-  const sliderPercentage = parseFloat(qualitySlider.value);
-  
-  // Map percentage to available qualities (0 = lowest quality, 100 = highest quality)
-  // This is reversed from the previous implementation
-  const normalizedPercentage = 100 - sliderPercentage;
-  let index = Math.round((normalizedPercentage / 100) * (availableQualities.length - 1));
-  
+  const sliderValue = parseInt(qualitySlider.value, 10);
+
+  // Map slider value (0 = lowest, max = highest) to array index (0 = highest, last = lowest)
+  // slider 0 -> index length-1
+  // slider max -> index 0
+  const index = (availableQualities.length - 1) - sliderValue;
+
   // Ensure index is within bounds
-  index = Math.max(0, Math.min(index, availableQualities.length - 1));
-  
-  return index;
+  return Math.max(0, Math.min(index, availableQualities.length - 1));
 }
 
 /**
@@ -262,10 +251,10 @@ function getSelectedQualityIndex(): number {
  */
 function updateQualityDisplayFromSlider(): void {
   if (!availableQualities.length) return;
-  
+
   const selectedIndex = getSelectedQualityIndex();
   const quality = availableQualities[selectedIndex];
-  
+
   if (quality) {
     let qualityText = quality.label;
     if (quality.tag) {
@@ -276,11 +265,31 @@ function updateQualityDisplayFromSlider(): void {
 }
 
 /**
+ * Update the datalist markers for the slider
+ */
+function updateQualityMarkers(): void {
+  // Clear existing markers
+  qualityMarkers.innerHTML = '';
+
+  if (!availableQualities.length) return;
+
+  // Create markers for each quality level
+  // The slider goes from 0 to length-1
+  for (let i = 0; i < availableQualities.length; i++) {
+    const option = document.createElement('option');
+    option.value = i.toString();
+    // We can add a label, but Chrome mostly just shows the tick
+    // option.label = availableQualities[availableQualities.length - 1 - i].label; 
+    qualityMarkers.appendChild(option);
+  }
+}
+
+/**
  * Get quality information from the YouTube player
  */
 function getQualityInfo(): void {
   if (!activeTabId) return;
-  
+
   chrome.tabs.sendMessage(
     activeTabId,
     { command: 'get_quality_info' },
@@ -291,7 +300,7 @@ function getQualityInfo(): void {
         showMessage('Could not retrieve quality information', 'error');
         return;
       }
-      
+
       if (response && response.success) {
         handleQualityInfoResponse(response);
       } else {
@@ -311,25 +320,25 @@ function handleQualityInfoResponse(response: QualityResponse): void {
     disableControls();
     return;
   }
-  
+
   // Store available qualities in order (highest to lowest)
   availableQualities = response.availableQualities
     .filter(q => q.id !== 'auto') // Remove auto quality
     .sort((a, b) => {
       return QUALITY_ORDER.indexOf(a.id) - QUALITY_ORDER.indexOf(b.id);
     });
-    
+
   currentQuality = response.currentQuality || null;
-  
+
   // Enable controls
   enableControls();
-  
+
   // Set slider based on current quality
   setSliderToCurrentQuality();
-  
+
   // Update radio buttons based on current quality
   updateRadioButtons();
-  
+
   // Show ready message
   showMessage('Ready', 'success');
 }
@@ -339,16 +348,17 @@ function handleQualityInfoResponse(response: QualityResponse): void {
  */
 function setSliderToCurrentQuality(): void {
   if (!availableQualities.length || !currentQuality) return;
-  
+
   // Find index of current quality in available qualities
   const currentIndex = availableQualities.findIndex(q => q.id === currentQuality!.id);
-  
+
   if (currentIndex >= 0 && !qualitySliderManuallyChanged) {
-    // Map index to slider percentage (0 = lowest quality, 100 = highest quality)
-    // This is reversed from the previous implementation
-    const sliderPercentage = 100 - ((currentIndex / (availableQualities.length - 1)) * 100);
-    qualitySlider.value = sliderPercentage.toString();
-    
+    // Map array index to slider value
+    // Index 0 (highest) -> Slider Max
+    // Index Last (lowest) -> Slider 0
+    const sliderValue = (availableQualities.length - 1) - currentIndex;
+    qualitySlider.value = sliderValue.toString();
+
     // Update display
     let qualityText = currentQuality.label;
     if (currentQuality.tag) {
@@ -363,11 +373,11 @@ function setSliderToCurrentQuality(): void {
  */
 function updateRadioButtons(): void {
   if (!availableQualities.length || !currentQuality) return;
-  
+
   // Check if current quality is highest or lowest
   const isHighest = currentQuality.id === availableQualities[0].id;
   const isLowest = currentQuality.id === availableQualities[availableQualities.length - 1].id;
-  
+
   highestQualityRadio.checked = isHighest;
   lowestQualityRadio.checked = isLowest;
 }
@@ -396,11 +406,11 @@ function disableControls(): void {
  */
 function sendCommand(command: string, params: Record<string, any> = {}): void {
   if (!activeTabId) return;
-  
+
   const message: ChromeMessage = { command, ...params };
-  
+
   showMessage('Changing quality...', 'info');
-  
+
   chrome.tabs.sendMessage(
     activeTabId,
     message,
@@ -411,7 +421,7 @@ function sendCommand(command: string, params: Record<string, any> = {}): void {
         showMessage('Error changing quality', 'error');
         return;
       }
-      
+
       if (response && response.success) {
         if (response.newQuality) {
           // Update display with the new quality
@@ -419,9 +429,9 @@ function sendCommand(command: string, params: Record<string, any> = {}): void {
           setSliderToCurrentQuality();
           updateRadioButtons();
         }
-        
+
         showMessage('Quality changed successfully', 'success');
-        
+
         // Popup will remain open - removed auto-close functionality
       } else {
         showMessage('Failed to change quality', 'error');
@@ -434,7 +444,10 @@ function sendCommand(command: string, params: Record<string, any> = {}): void {
  * Show a status message
  */
 function showMessage(message: string, type: MessageType = 'info'): void {
-  statusMessage.textContent = message;
-  statusMessage.className = 'status-message';
-  statusMessage.classList.add(`status-${type}`);
+  // Update tooltip instead of text content to preserve the dot
+  if (statusMessage) {
+    statusMessage.title = message;
+    // Toggle 'connected' class for success state
+    statusMessage.classList.toggle('connected', type === 'success');
+  }
 }

@@ -1,17 +1,1 @@
-"use strict";
-document.addEventListener('DOMContentLoaded', () => {
-    const extendedNavigator = navigator;
-    const isMacOS = /Mac/i.test(extendedNavigator.userAgentData?.platform || navigator.platform || '');
-    const windowsShortcutsElement = document.getElementById('windowsShortcuts');
-    const macShortcutsElement = document.getElementById('macShortcuts');
-    if (!windowsShortcutsElement || !macShortcutsElement) {
-        console.error('YouTube Quality Shortcut: Shortcut elements not found');
-        return;
-    }
-    if (isMacOS) {
-        macShortcutsElement.style.display = 'block';
-    }
-    else {
-        windowsShortcutsElement.style.display = 'block';
-    }
-});
+"use strict";(()=>{document.addEventListener("DOMContentLoaded",()=>{let a=navigator,o=/Mac/i.test(a.userAgentData?.platform||navigator.platform||""),t=document.getElementById("windowsShortcuts"),e=document.getElementById("macShortcuts");if(!t||!e){console.error("YouTube Quality Shortcut: Shortcut elements not found");return}o?e.style.display="block":t.style.display="block"});})();

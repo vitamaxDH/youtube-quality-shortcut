@@ -1,16 +1,19 @@
 {
   "name": "youtube-quality-shortcut",
-  "version": "1.4.0",
+  "version": "1.5.2",
   "description": "Control YouTube video quality with keyboard shortcuts",
   "private": true,
   "scripts": {
-    "build": "./build.sh",
+    "build": "node scripts/build.mjs",
     "compile": "tsc",
     "watch": "tsc --watch",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.269",
+    "adm-zip": "^0.5.16",
+    "esbuild": "^0.27.1",
+    "fs-extra": "^11.3.2",
     "typescript": "^5.3.3"
   }
 }

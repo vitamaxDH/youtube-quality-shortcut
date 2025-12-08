@@ -13,26 +13,12 @@ interface YouTubePlayer extends HTMLElement {
   setPlaybackQualityRange(quality: string): void;
 }
 
-interface QualityInfo {
-  id: string;
-  label: string;
-  tag?: string;
-}
+import type {
+  QualityInfo,
+  YoutubeQualityMessage
+} from './types';
 
-interface ControlEventDetail {
-  command: string;
-  quality?: string;
-}
-
-interface QualityInfoEventDetail {
-  requestId: string;
-}
-
-interface QualityResponseEventDetail {
-  requestId: string;
-  currentQuality: QualityInfo;
-  availableQualities: QualityInfo[];
-}
+const OBS_SOURCE = 'YOUTUBE_QUALITY_EXTENSION_INTERNAL';
 
 interface TrustedTypesPolicy {
   createHTML(input: string): string;
@@ -42,38 +28,40 @@ interface TrustedTypes {
   createPolicy(name: string, policy: { createHTML: (input: string) => string }): TrustedTypesPolicy;
 }
 
-// Listen for commands from content script
-document.addEventListener('controlEvent', (event: Event): void => {
-  const { detail } = event as CustomEvent<ControlEventDetail>;
-  const { command } = detail;
-  
-  // Handle set_specific_quality command
-  if (command === "set_specific_quality" && detail.quality) {
-    setSpecificQuality(detail.quality);
+// listen for messages from content script
+window.addEventListener('message', (event) => {
+  // Security check: only accept messages from same window and our extension
+  if (event.source !== window || event.data?.source !== OBS_SOURCE) {
     return;
   }
-  
-  switch (command) {
-    case "decrease_quality":
-      changeQuality(false);
+
+  const message = event.data as YoutubeQualityMessage;
+
+  switch (message.type) {
+    case 'GET_QUALITY_INFO':
+      if (message.requestId) {
+        sendQualityInfo(message.requestId);
+      }
       break;
-    case "increase_quality":
-      changeQuality(true);
+
+    case 'CHANGE_QUALITY':
+      if (message.payload && typeof message.payload.increase === 'boolean') {
+        changeQuality(message.payload.increase);
+      }
       break;
-    case "lowest_quality":
-      setQualityExtreme(false);
+
+    case 'SET_SPECIFIC_QUALITY':
+      if (message.payload && message.payload.quality) {
+        setSpecificQuality(message.payload.quality);
+      }
       break;
-    case "highest_quality":
-      setQualityExtreme(true);
+
+    case 'SET_EXTREME_QUALITY':
+      if (message.payload && typeof message.payload.highest === 'boolean') {
+        setQualityExtreme(message.payload.highest);
+      }
       break;
   }
-});
-
-// Listen for quality info requests
-document.addEventListener('getQualityInfo', (event: Event): void => {
-  const customEvent = event as CustomEvent<QualityInfoEventDetail>;
-  const requestId = customEvent.detail.requestId;
-  sendQualityInfo(requestId);
 });
 
 // Create a policy for trusted HTML (security best practice)
@@ -108,18 +96,27 @@ const QUALITY_DISPLAY_DURATION = 700;
 function sendQualityInfo(requestId: string): void {
   const player = document.getElementById('movie_player') as YouTubePlayer | null;
   if (!player?.getAvailableQualityLevels) {
-    // Send empty response if player not available
-    document.dispatchEvent(new CustomEvent<QualityResponseEventDetail>('qualityInfoResponse', {
-      detail: { requestId, currentQuality: { id: '', label: '' }, availableQualities: [] }
-    }));
+    // Send empty response via postMessage if player not available
+    const response: YoutubeQualityMessage = {
+      source: OBS_SOURCE,
+      type: 'QUALITY_INFO_RESPONSE',
+      requestId,
+      payload: {
+        currentQuality: { id: '', label: '' },
+        availableQualities: [],
+        success: false,
+        error: 'Player not found'
+      }
+    };
+    window.postMessage(response, '*');
     return;
   }
-  
+
   try {
     // Get current and available qualities
     const currentQuality = player.getPlaybackQuality();
     const availableQualities = player.getAvailableQualityLevels();
-    
+
     // Format the current quality with its label
     let formattedCurrentQuality: QualityInfo = { id: currentQuality, label: currentQuality };
     if (RESOLUTION_MAP[currentQuality]) {
@@ -129,7 +126,7 @@ function sendQualityInfo(requestId: string): void {
         ...(RESOLUTION_MAP[currentQuality].tag && { tag: RESOLUTION_MAP[currentQuality].tag })
       };
     }
-    
+
     // Format the available qualities with their labels
     const formattedAvailableQualities: QualityInfo[] = availableQualities.map(q => {
       if (RESOLUTION_MAP[q]) {
@@ -141,20 +138,36 @@ function sendQualityInfo(requestId: string): void {
       }
       return { id: q, label: q };
     });
-    
-    // Send the response
-    document.dispatchEvent(new CustomEvent<QualityResponseEventDetail>('qualityInfoResponse', {
-      detail: {
-        requestId,
+
+    // Send the response via postMessage
+    const response: YoutubeQualityMessage = {
+      source: OBS_SOURCE,
+      type: 'QUALITY_INFO_RESPONSE',
+      requestId,
+      payload: {
         currentQuality: formattedCurrentQuality,
-        availableQualities: formattedAvailableQualities
+        availableQualities: formattedAvailableQualities,
+        success: true
       }
-    }));
+    };
+    window.postMessage(response, '*');
+
   } catch (error) {
     console.error('YouTube Quality Shortcut: Error getting quality info', error);
-    document.dispatchEvent(new CustomEvent<QualityResponseEventDetail>('qualityInfoResponse', {
-      detail: { requestId, currentQuality: { id: '', label: '' }, availableQualities: [] }
-    }));
+
+    // Send error response
+    const response: YoutubeQualityMessage = {
+      source: OBS_SOURCE,
+      type: 'QUALITY_INFO_RESPONSE',
+      requestId,
+      payload: {
+        currentQuality: { id: '', label: '' },
+        availableQualities: [],
+        success: false,
+        error: (error as Error).message
+      }
+    };
+    window.postMessage(response, '*');
   }
 }
 
@@ -168,7 +181,7 @@ function changeQuality(increase: boolean): void {
     console.error('YouTube Quality Shortcut: Player not found or API not available');
     return;
   }
-  
+
   try {
     // Get available qualities and remove 'auto' option
     const qualities = [...player.getAvailableQualityLevels()];
@@ -176,7 +189,7 @@ function changeQuality(increase: boolean): void {
     if (autoIndex !== -1) {
       qualities.splice(autoIndex, 1);
     }
-    
+
     if (qualities.length === 0) {
       console.warn('YouTube Quality Shortcut: No quality levels available');
       return;
@@ -185,26 +198,26 @@ function changeQuality(increase: boolean): void {
     // Determine new quality level
     const currentQuality = player.getPlaybackQuality();
     let currentQualityIndex = qualities.indexOf(currentQuality);
-    
+
     // Default to highest quality if current quality not found
     if (currentQualityIndex === -1) {
       currentQualityIndex = 0;
     }
-    
+
     let newQualityIndex = currentQualityIndex;
     if (increase && currentQualityIndex > 0) {
       newQualityIndex = currentQualityIndex - 1;
     } else if (!increase && currentQualityIndex < qualities.length - 1) {
       newQualityIndex = currentQualityIndex + 1;
     }
-    
+
     const newQuality = qualities[newQualityIndex];
-    
+
     // Update YouTube player with new quality setting if quality is changing
     if (newQuality !== currentQuality) {
       player.setPlaybackQualityRange(newQuality);
     }
-    
+
     // Always show quality change visual feedback, even if quality didn't change
     showQualityChangeIndicator(newQuality);
   } catch (error) {
@@ -222,26 +235,26 @@ function showQualityChangeIndicator(quality: string): void {
     const bezelTextElement = document.querySelector('.ytp-bezel-text') as HTMLElement | null;
     const wrapperParent = bezelTxtWrapper?.parentNode as HTMLElement | null;
     const bezelTxtIcon = document.querySelector('.ytp-bezel-icon') as HTMLElement | null;
-    
+
     if (!bezelTextElement || !wrapperParent || !bezelTxtIcon) return;
-    
+
     // Hide icon and show text wrapper
     bezelTxtIcon.style.display = 'none';
     wrapperParent.style.display = 'block';
-    
+
     wrapperParent.classList.remove('ytp-bezel-text-hide');
-    
+
     // Display the quality text with optional badge
     const resolution = RESOLUTION_MAP[quality];
     let qualityHtml = resolution?.label || quality;
-    
+
     if (resolution?.tag) {
       qualityHtml += ` <span style="background-color: red; color: white; padding: 2px 4px; border-radius: 4px; font-size: small;">${resolution.tag}</span>`;
     }
-    
+
     // Use trusted HTML policy when available
     bezelTextElement.innerHTML = policy.createHTML(qualityHtml);
-    
+
     // Clear any existing timeout
     if (qualityChangeTimeoutId) {
       clearTimeout(qualityChangeTimeoutId);
@@ -269,7 +282,7 @@ function setQualityExtreme(highest: boolean): void {
     console.error('YouTube Quality Shortcut: Player not found or API not available');
     return;
   }
-  
+
   try {
     // Get available qualities and remove 'auto' option
     const qualities = [...player.getAvailableQualityLevels()];
@@ -277,7 +290,7 @@ function setQualityExtreme(highest: boolean): void {
     if (autoIndex !== -1) {
       qualities.splice(autoIndex, 1);
     }
-    
+
     if (qualities.length === 0) {
       console.warn('YouTube Quality Shortcut: No quality levels available');
       return;
@@ -285,15 +298,15 @@ function setQualityExtreme(highest: boolean): void {
 
     // Get current quality to check if we need to change
     const currentQuality = player.getPlaybackQuality();
-    
+
     // Select either the first (highest) or last (lowest) quality
     const newQuality = highest ? qualities[0] : qualities[qualities.length - 1];
-    
+
     // Update YouTube player with new quality setting if quality is changing
     if (newQuality !== currentQuality) {
       player.setPlaybackQualityRange(newQuality);
     }
-    
+
     // Always show quality change visual feedback, even if quality didn't change
     showQualityChangeIndicator(newQuality);
   } catch (error) {
@@ -311,7 +324,7 @@ function setSpecificQuality(qualityId: string): void {
     console.error('YouTube Quality Shortcut: Player not found or API not available');
     return;
   }
-  
+
   try {
     // Check if requested quality is available
     const availableQualities = player.getAvailableQualityLevels();
@@ -319,15 +332,15 @@ function setSpecificQuality(qualityId: string): void {
       console.warn(`YouTube Quality Shortcut: Requested quality ${qualityId} not available`);
       return;
     }
-    
+
     // Get current quality to check if we need to change
     const currentQuality = player.getPlaybackQuality();
-    
+
     // Update YouTube player with new quality setting if quality is changing
     if (qualityId !== currentQuality) {
       player.setPlaybackQualityRange(qualityId);
     }
-    
+
     // Always show quality change visual feedback, even if quality didn't change
     showQualityChangeIndicator(qualityId);
   } catch (error) {
