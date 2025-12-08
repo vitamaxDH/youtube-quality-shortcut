@@ -1,7 +1,7 @@
 {
   "name": "YouTube Quality ShortCut",
   "manifest_version": 3,
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Control You Tube video quality with keyboard shortcuts.",
   "background": {
     "service_worker": "service-worker.js"

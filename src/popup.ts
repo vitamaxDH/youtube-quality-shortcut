@@ -48,6 +48,13 @@ document.addEventListener('DOMContentLoaded', initializePopup);
  */
 async function initializePopup(): Promise<void> {
   try {
+    // Set version from manifest
+    const manifest = chrome.runtime.getManifest();
+    const versionElement = document.getElementById('appVersion');
+    if (versionElement) {
+      versionElement.textContent = `v${manifest.version}`;
+    }
+
     // Get the current active tab
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tabs || tabs.length === 0) {
