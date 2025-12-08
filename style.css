@@ -75,16 +75,18 @@ header {
 .quality-card {
     background: var(--surface);
     border-radius: var(--radius-lg);
-    padding: 20px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
 }
 
 .current-quality-display {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .label {
@@ -123,20 +125,20 @@ input[type=range] {
 }
 
 /* Custom markers overlay */
+/* Custom markers overlay */
 .slider-markers {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
     left: 0;
     width: 100%;
-    /* Alignment adjustments for thumb width (16px) */
-    padding: 0 8px;
+    /* Align markers center to center with tracks */
+    padding: 0 10px;
     box-sizing: border-box;
     display: flex;
     justify-content: space-between;
     pointer-events: none;
     z-index: 1;
-    /* Behind the thumb */
 }
 
 .marker {
@@ -144,7 +146,13 @@ input[type=range] {
     height: 4px;
     border-radius: 50%;
     background-color: rgba(255, 255, 255, 0.3);
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
+}
+
+.marker.active {
+    background-color: var(--primary);
+    transform: scale(1.5);
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
 }
 
 /* Active/Pass markers could be styled if we had logic, but simple dots are fine */
@@ -242,7 +250,9 @@ kbd {
     font-family: inherit;
     font-weight: 500;
     min-width: 20px;
+    min-width: 24px;
     text-align: center;
+    display: inline-block;
 }
 
 .separator {
@@ -254,13 +264,14 @@ kbd {
 footer {
     display: flex;
     justify-content: center;
-    padding-top: 8px;
+    padding-top: 0;
 }
 
 .bmc-button {
+    width: 100%;
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 8px;
     background-color: #FFDD00;
     color: #000000;
     font-family: 'Cookie', cursive, sans-serif;
