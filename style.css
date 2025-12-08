@@ -133,7 +133,7 @@ input[type=range] {
     left: 0;
     width: 100%;
     /* Align markers center to center with tracks */
-    padding: 0 10px;
+    padding: 0 6px;
     box-sizing: border-box;
     display: flex;
     justify-content: space-between;

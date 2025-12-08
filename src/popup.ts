@@ -332,7 +332,9 @@ function updateQualityMarkers(): void {
 
   // Create markers for each quality level
   // Create markers for each quality level
-  for (let i = 0; i < availableQualities.length; i++) {
+  // Iterate backwards so that the order matches the slider (Low -> High)
+  // availableQualities is sorted High -> Low
+  for (let i = availableQualities.length - 1; i >= 0; i--) {
     const marker = document.createElement('div');
     marker.className = 'marker';
     // Highlight the current quality marker
@@ -396,11 +398,18 @@ function handleQualityInfoResponse(response: QualityResponse): void {
   // Enable controls
   enableControls();
 
+  // Update slider min/max/step to match available qualities count
+  qualitySlider.max = (availableQualities.length - 1).toString();
+  qualitySlider.step = '1';
+
   // Set slider based on current quality
   setSliderToCurrentQuality();
 
   // Update radio buttons based on current quality
   updateRadioButtons();
+
+  // Update markers
+  updateQualityMarkers();
 
   // Show ready message
   showMessage('Ready', 'success');
