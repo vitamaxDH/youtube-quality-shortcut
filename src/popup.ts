@@ -20,6 +20,7 @@ import {
   QualityInfo,
   QualityResponse
 } from './types';
+import { Logger } from './logger';
 
 type MessageType = 'info' | 'success' | 'error' | 'warning';
 
@@ -39,6 +40,10 @@ const highestQualityRadio = document.getElementById('highestQuality') as HTMLInp
 const statusMessage = document.getElementById('statusMessage') as HTMLElement;
 const qualityMarkers = document.getElementById('quality-markers') as HTMLElement;
 const sliderTooltip = document.getElementById('slider-tooltip') as HTMLElement;
+
+const refreshLogsBtn = document.getElementById('refreshLogs') as HTMLButtonElement;
+const clearLogsBtn = document.getElementById('clearLogs') as HTMLButtonElement;
+const logContainer = document.getElementById('logContainer') as HTMLElement;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', initializePopup);
@@ -75,6 +80,9 @@ async function initializePopup(): Promise<void> {
     // Initialize control event listeners
     initializeControls();
 
+    // Initialize debug logs
+    initDebugLogs();
+
     // Get quality information from the YouTube player
     getQualityInfo();
 
@@ -86,6 +94,50 @@ async function initializePopup(): Promise<void> {
   } catch (error) {
     console.error('Error initializing popup:', error);
     showMessage('Failed to initialize controls', 'error');
+  }
+}
+
+/**
+ * Initialize debug log handlers
+ */
+function initDebugLogs(): void {
+  if (!refreshLogsBtn || !clearLogsBtn || !logContainer) return;
+
+  refreshLogsBtn.addEventListener('click', loadLogs);
+
+  clearLogsBtn.addEventListener('click', async () => {
+    await Logger.clearLogs();
+    loadLogs();
+  });
+
+  // Initial load
+  loadLogs();
+}
+
+/**
+ * Load and display debug logs
+ */
+async function loadLogs(): Promise<void> {
+  if (!logContainer) return;
+
+  logContainer.textContent = 'Loading...';
+
+  try {
+    const logs = await Logger.getLogs();
+
+    if (logs.length === 0) {
+      logContainer.textContent = 'No logs found.';
+      return;
+    }
+
+    logContainer.textContent = logs.map(log => {
+      const time = new Date(log.timestamp).toLocaleTimeString();
+      const details = log.details ? `\n  ${JSON.stringify(log.details)}` : '';
+      return `[${time}] [${log.level}] ${log.message}${details}`;
+    }).join('\n');
+  } catch (error) {
+    logContainer.textContent = 'Error loading logs.';
+    console.error(error);
   }
 }
 

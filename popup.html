@@ -84,10 +84,34 @@
                         <kbd>0</kbd>
                     </div>
                 </div>
-                <!-- Windows hint, hidden on Mac via JS logic usually, but here handled by CSS class toggling if needed or simple text -->
+            <!-- Windows hint, hidden on Mac via JS logic usually, but here handled by CSS class toggling if needed or simple text -->
                 <div id="windowsHint" style="display:none; font-size: 10px; color: #666; margin-top: 4px;">
                     (Use Ctrl instead of Cmd)
                 </div>
+            </div>
+
+            <!-- Debug Logs Section -->
+            <div class="debug-section" style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                <details>
+                    <summary style="cursor: pointer; font-size: 12px; color: #666; user-select: none;">Debug Logs</summary>
+                    <div style="margin-top: 8px;">
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <button id="refreshLogs" style="font-size: 10px; padding: 2px 6px;">Refresh</button>
+                            <button id="clearLogs" style="font-size: 10px; padding: 2px 6px;">Clear</button>
+                        </div>
+                        <div id="logContainer" style="
+                            font-family: monospace;
+                            font-size: 10px;
+                            background: #f5f5f5;
+                            padding: 8px;
+                            border-radius: 4px;
+                            max-height: 150px;
+                            overflow-y: auto;
+                            white-space: pre-wrap;
+                            word-break: break-all;
+                        ">Loading logs...</div>
+                    </div>
+                </details>
             </div>
         </main>
 
