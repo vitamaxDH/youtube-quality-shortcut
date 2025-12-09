@@ -19,6 +19,9 @@ import type {
   QualityResponseEventDetail,
   YoutubeQualityMessage
 } from './types';
+import { Logger } from './logger';
+
+const logger = new Logger('ContentScript');
 
 const OBS_SOURCE = 'YOUTUBE_QUALITY_EXTENSION_INTERNAL';
 
@@ -104,7 +107,7 @@ chrome.runtime.onMessage.addListener((
   _sender: chrome.runtime.MessageSender,
   sendResponse: (response: ChromeResponse) => void
 ): boolean => {
-  // console.debug(`${EXTENSION_NAME_CONTENT}: Received message:`, request);
+  logger.log(`Received message: ${request.command}`, request);
 
   // Handle quality info request from popup
   if (request.command === 'get_quality_info') {
@@ -117,7 +120,7 @@ chrome.runtime.onMessage.addListener((
         });
       })
       .catch(error => {
-        console.error(`${EXTENSION_NAME_CONTENT}:`, error);
+        logger.error('Failed to get quality info', error);
         sendResponse({ success: false, error: error.message });
       });
     return true;
@@ -170,7 +173,7 @@ chrome.runtime.onMessage.addListener((
       }
     })
     .catch(error => {
-      console.error(`${EXTENSION_NAME_CONTENT}:`, error);
+      logger.error('Control script injection failed', error);
       sendResponse({ success: false, error: error.message });
     });
 
@@ -391,7 +394,7 @@ function addQualityShortcutsToGuide(): void {
     generalSection.appendChild(fragment);
 
   } catch (error) {
-    console.error(`${EXTENSION_NAME_CONTENT}: Failed to modify keyboard shortcut guide`, error);
+    logger.error('Failed to modify keyboard shortcut guide', error);
     // Do NOT reset the flag. If we failed once, we likely can't succeed cleanly without risking duplicates.
     // Better to have no shortcuts than duplicate/broken ones.
   }
@@ -416,8 +419,69 @@ function createShortcutEntry(template: HTMLElement, labelText: string, hotkeyTex
   return shortcutEntry;
 }
 
+// Keyboard event listener for JS-based shortcuts
+document.addEventListener('keydown', (event) => {
+  // Ignore if user is typing in an input field
+  const target = event.target as HTMLElement;
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+    return;
+  }
+
+  // Check for modifier keys
+  const isCmdOrCtrl = isMacOS ? event.metaKey : event.ctrlKey;
+  if (!isCmdOrCtrl || !event.shiftKey) {
+    return;
+  }
+
+  let command: string | null = null;
+  let payload: any = {};
+
+  switch (event.code) {
+    case 'Digit1':
+      command = 'decrease_quality'; // Shift+Cmd+1
+      payload = { increase: false };
+      break;
+    case 'Digit2':
+      command = 'increase_quality'; // Shift+Cmd+2
+      payload = { increase: true };
+      break;
+    case 'Digit9':
+      command = 'lowest_quality'; // Shift+Cmd+9
+      payload = { highest: false };
+      break;
+    case 'Digit0':
+      command = 'highest_quality'; // Shift+Cmd+0
+      payload = { highest: true };
+      break;
+  }
+
+  if (command) {
+    logger.log(`JS Shortcut detected: ${command}`);
+
+    // Prevent default browser behavior
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Re-use the logic from onMessage handler to send postMessage to control.js
+    // We can manually dispatch the message
+    injectControlScript(chrome.runtime.getURL('control.js'))
+      .then(() => {
+        const message: YoutubeQualityMessage = {
+          source: OBS_SOURCE,
+          type: command === 'lowest_quality' || command === 'highest_quality' ? 'SET_EXTREME_QUALITY' : 'CHANGE_QUALITY',
+          payload: payload
+        };
+
+        window.postMessage(message, '*');
+      })
+      .catch(error => {
+        logger.error('Failed to handle JS shortcut', error);
+      });
+  }
+});
+
 // Initialize observers when the content script loads
-console.log(`${EXTENSION_NAME_CONTENT}: Content script loaded on`, window.location.href);
+logger.log(`Content script loaded on ${window.location.href}`);
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', observeYouTubeShortcutDialog);
