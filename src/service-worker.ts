@@ -12,6 +12,9 @@ const ICONS = Object.freeze({
 const YOUTUBE_WATCH_PATTERNS = ['youtube.com/watch', 'www.youtube.com/watch'];
 const EXTENSION_NAME_SW = 'YouTube Quality Shortcut';
 import { ChromeMessage } from './types';
+import { Logger } from './logger';
+
+const logger = new Logger('ServiceWorker');
 
 /**
  * Handles keyboard shortcut commands
@@ -20,12 +23,13 @@ chrome.commands.onCommand.addListener((command: string): void => {
   try {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs: chrome.tabs.Tab[]): void => {
       if (!tabs || !tabs.length) {
-        console.debug(`${EXTENSION_NAME_SW}: No active tabs found`);
+        logger.log('No active tabs found');
         return;
       }
 
       const activeTab = tabs[0];
       if (isYouTubeWatchPage(activeTab.url)) {
+        logger.log(`Processing command: ${command}`);
         const message: ChromeMessage = { command, ...(activeTab.id && { tabId: activeTab.id }) };
         chrome.tabs.sendMessage(
           activeTab.id!,
@@ -34,14 +38,16 @@ chrome.commands.onCommand.addListener((command: string): void => {
           (): void => {
             const error = chrome.runtime.lastError;
             if (error) {
-              console.debug(`${EXTENSION_NAME_SW}: ${error.message}`);
+              logger.error(`Message send failed: ${error.message}`);
+            } else {
+              logger.log(`Message sent successfully to tab ${activeTab.id}`);
             }
           }
         );
       }
     });
   } catch (error) {
-    console.error(`${EXTENSION_NAME_SW}: Command handler error`, error);
+    logger.error('Command handler error', error);
   }
 });
 
@@ -61,10 +67,10 @@ chrome.tabs.onUpdated.addListener((tabId: number, changeInfo: chrome.tabs.TabCha
       path: iconPath,
       tabId
     }).catch((error: Error): void => {
-      console.debug(`${EXTENSION_NAME_SW}: Icon update error`, error);
+      logger.error('Icon update error', error);
     });
   } catch (error) {
-    console.error(`${EXTENSION_NAME_SW}: Tab update handler error`, error);
+    logger.error('Tab update handler error', error);
   }
 });
 
