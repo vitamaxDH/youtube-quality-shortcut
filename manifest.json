@@ -18,7 +18,8 @@
     }
   ],
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "storage"
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
