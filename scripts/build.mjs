@@ -44,7 +44,6 @@ async function build() {
     } else {
         fs.copySync('popup.html', path.join(DIST_DIR, 'popup.html'));
     }
-    fs.copySync('options.html', path.join(DIST_DIR, 'options.html'));
     fs.copySync('manifest.json', path.join(DIST_DIR, 'manifest.json'));
     if (fs.existsSync('images')) {
         fs.copySync('images', path.join(DIST_DIR, 'images'));
