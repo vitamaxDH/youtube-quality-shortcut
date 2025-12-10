@@ -420,6 +420,26 @@ function createShortcutEntry(template: HTMLElement, labelText: string, hotkeyTex
 }
 
 // Keyboard event listener for JS-based shortcuts
+// Cache bindings to avoid async calls in keydown
+let cachedBindings: any = {};
+
+// Load initial bindings
+chrome.storage.sync.get(['bindings'], (result) => {
+  if (result.bindings) {
+    cachedBindings = result.bindings;
+    logger.log('Bindings loaded', cachedBindings);
+  }
+});
+
+// Listen for binding changes
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'sync' && changes.bindings) {
+    cachedBindings = changes.bindings.newValue;
+    logger.log('Bindings updated', cachedBindings);
+  }
+});
+
+// Keyboard event listener for JS-based shortcuts
 document.addEventListener('keydown', (event) => {
   // Ignore if user is typing in an input field
   const target = event.target as HTMLElement;
@@ -427,43 +447,60 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
-  // Check for modifier keys
-  const isCmdOrCtrl = isMacOS ? event.metaKey : event.ctrlKey;
-  if (!isCmdOrCtrl || !event.shiftKey) {
-    return;
-  }
-
   let command: string | null = null;
   let payload: any = {};
 
-  switch (event.code) {
-    case 'Digit1':
-      command = 'decrease_quality'; // Shift+Cmd+1
+  // Check cached custom bindings synchronously
+  if (cachedBindings) {
+    if (matchBinding(event, cachedBindings.decreaseQuality)) {
+      command = 'decrease_quality';
       payload = { increase: false };
-      break;
-    case 'Digit2':
-      command = 'increase_quality'; // Shift+Cmd+2
+    } else if (matchBinding(event, cachedBindings.increaseQuality)) {
+      command = 'increase_quality';
       payload = { increase: true };
-      break;
-    case 'Digit9':
-      command = 'lowest_quality'; // Shift+Cmd+9
+    } else if (matchBinding(event, cachedBindings.lowestQuality)) {
+      command = 'lowest_quality';
       payload = { highest: false };
-      break;
-    case 'Digit0':
-      command = 'highest_quality'; // Shift+Cmd+0
+    } else if (matchBinding(event, cachedBindings.highestQuality)) {
+      command = 'highest_quality';
       payload = { highest: true };
-      break;
+    }
+  }
+
+  // Fallback to default hardcoded shortcuts (Hybrid approach)
+  // Only check these if no custom command was found
+  if (!command) {
+    const isCmdOrCtrl = isMacOS ? event.metaKey : event.ctrlKey;
+    if (isCmdOrCtrl && event.shiftKey) {
+      switch (event.code) {
+        case 'Digit1':
+          command = 'decrease_quality';
+          payload = { increase: false };
+          break;
+        case 'Digit2':
+          command = 'increase_quality';
+          payload = { increase: true };
+          break;
+        case 'Digit9':
+          command = 'lowest_quality';
+          payload = { highest: false };
+          break;
+        case 'Digit0':
+          command = 'highest_quality';
+          payload = { highest: true };
+          break;
+      }
+    }
   }
 
   if (command) {
     logger.log(`JS Shortcut detected: ${command}`);
 
-    // Prevent default browser behavior
+    // Prevent default browser behavior synchronously
     event.preventDefault();
     event.stopPropagation();
 
     // Re-use the logic from onMessage handler to send postMessage to control.js
-    // We can manually dispatch the message
     injectControlScript(chrome.runtime.getURL('control.js'))
       .then(() => {
         const message: YoutubeQualityMessage = {
@@ -479,6 +516,17 @@ document.addEventListener('keydown', (event) => {
       });
   }
 });
+
+function matchBinding(event: KeyboardEvent, binding: any): boolean {
+  if (!binding) return false;
+  return (
+    event.code === binding.key &&
+    event.ctrlKey === binding.ctrlKey &&
+    event.shiftKey === binding.shiftKey &&
+    event.altKey === binding.altKey &&
+    event.metaKey === binding.metaKey
+  );
+}
 
 // Initialize observers when the content script loads
 logger.log(`Content script loaded on ${window.location.href}`);
