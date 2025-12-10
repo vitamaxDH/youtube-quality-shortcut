@@ -67,25 +67,38 @@
             <!-- Shortcuts List (Compact) -->
             <div class="shortcuts-list">
                 <div class="shortcut-row">
-                    <span class="sc-label">Quality Down / Up</span>
-                    <div class="keys">
-                        <kbd class="mod-key"></kbd>
-                        <kbd>⇧</kbd>
-                        <kbd>1</kbd>
-                        <span class="separator">/</span>
-                        <kbd>2</kbd>
-                    </div>
+                    <span class="sc-label">Quality Down</span>
+                    <div class="keys" id="keys-quality-down"></div>
                 </div>
                 <div class="shortcut-row">
-                    <span class="sc-label">Min / Max</span>
-                    <div class="keys">
-                        <kbd class="mod-key"></kbd>
-                        <kbd>⇧</kbd>
-                        <kbd>9</kbd>
-                        <span class="separator">/</span>
-                        <kbd>0</kbd>
-                    </div>
+                    <span class="sc-label">Quality Up</span>
+                    <div class="keys" id="keys-quality-up"></div>
                 </div>
+                <div class="shortcut-row">
+                    <span class="sc-label">Lowest Quality</span>
+                    <div class="keys" id="keys-quality-min"></div>
+                </div>
+                <div class="shortcut-row">
+                    <span class="sc-label">Highest Quality</span>
+                    <div class="keys" id="keys-quality-max"></div>
+                </div>
+
+                <div style="margin-top: 12px; text-align: center;">
+                    <button id="openSettings" style="
+                        background: none; 
+                        border: 1px solid rgba(255,255,255,0.1); 
+                        color: var(--secondary); 
+                        cursor: pointer; 
+                        font-size: 11px; 
+                        padding: 4px 12px; 
+                        border-radius: 12px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.05)'; this.style.color='var(--primary)'"
+                        onmouseout="this.style.background='none'; this.style.color='var(--secondary)'">
+                        Customize Shortcuts ↗
+                    </button>
+                </div>
+
                 <!-- Windows hint, hidden on Mac via JS logic usually, but here handled by CSS class toggling if needed or simple text -->
                 <div id="windowsHint" style="display:none; font-size: 10px; color: #666; margin-top: 4px;">
                     (Use Ctrl instead of Cmd)
