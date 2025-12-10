@@ -19,7 +19,8 @@ async function build() {
             'src/popup.ts',
             'src/control.ts',
             'src/service-worker.ts',
-            'src/check_os.ts'
+            'src/check_os.ts',
+            'src/options.ts'
         ],
         bundle: true,
         outdir: DIST_DIR,
@@ -29,8 +30,21 @@ async function build() {
         sourcemap: false,
     });
 
+    const isProd = process.argv.includes('--prod');
     console.log('Copying assets...');
-    fs.copySync('popup.html', path.join(DIST_DIR, 'popup.html'));
+
+    // Handle popup.html specially for production
+    if (isProd) {
+        console.log('Production build: Removing debug logs...');
+        let popupContent = fs.readFileSync('popup.html', 'utf-8');
+        // Remove the debug section using regex or string replacement
+        // Assuming debug-section is the class name
+        popupContent = popupContent.replace(/<div class="debug-section"[\s\S]*?<\/div>\s*<\/main>/, '</main>');
+        fs.writeFileSync(path.join(DIST_DIR, 'popup.html'), popupContent);
+    } else {
+        fs.copySync('popup.html', path.join(DIST_DIR, 'popup.html'));
+    }
+    fs.copySync('options.html', path.join(DIST_DIR, 'options.html'));
     fs.copySync('manifest.json', path.join(DIST_DIR, 'manifest.json'));
     if (fs.existsSync('images')) {
         fs.copySync('images', path.join(DIST_DIR, 'images'));
