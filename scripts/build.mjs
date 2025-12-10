@@ -28,6 +28,7 @@ async function build() {
         platform: 'browser',
         target: 'es2020',
         sourcemap: false,
+        legalComments: 'none',
     });
 
     const isProd = process.argv.includes('--prod');

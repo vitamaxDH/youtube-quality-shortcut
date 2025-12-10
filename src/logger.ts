@@ -21,6 +21,11 @@ export class Logger {
 
     private async saveLog(entry: LogEntry): Promise<void> {
         try {
+            // Suppress known extension lifecycle errors
+            if (!chrome?.runtime?.id) {
+                return; // Extension context invalidated, skip logging
+            }
+
             const result = await chrome.storage.local.get(STORAGE_KEY);
             const logs: LogEntry[] = result[STORAGE_KEY] || [];
 
@@ -32,6 +37,12 @@ export class Logger {
 
             await chrome.storage.local.set({ [STORAGE_KEY]: logs });
         } catch (e) {
+            // Suppress common Chrome extension errors
+            const error = e as Error;
+            if (error.message?.includes('Extension context invalidated')) {
+                return; // Extension was reloaded, ignore
+            }
+            // Only log unexpected errors
             console.error('Failed to save log to storage:', e);
         }
     }
@@ -62,9 +73,16 @@ export class Logger {
 
     static async getLogs(): Promise<LogEntry[]> {
         try {
+            if (!chrome?.runtime?.id) {
+                return []; // Extension context invalidated
+            }
             const result = await chrome.storage.local.get(STORAGE_KEY);
             return result[STORAGE_KEY] || [];
         } catch (e) {
+            const error = e as Error;
+            if (error.message?.includes('Extension context invalidated')) {
+                return []; // Extension was reloaded
+            }
             console.error('Failed to retrieve logs:', e);
             return [];
         }
