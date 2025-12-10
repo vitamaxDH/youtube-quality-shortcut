@@ -1,8 +1,8 @@
 {
   "name": "YouTube Quality ShortCut",
   "manifest_version": 3,
-  "version": "1.5.2",
-  "description": "Control You Tube video quality with keyboard shortcuts.",
+  "version": "2.0.0",
+  "description": "Control YouTube video quality with simple keyboard shortcuts or an intuitive slider.",
   "background": {
     "service_worker": "service-worker.js"
   },
@@ -44,28 +44,28 @@
         "default": "Ctrl+Shift+1",
         "mac": "Command+Shift+1"
       },
-      "description": "Decrease YouTube video quality"
+      "description": "1. Decrease Quality"
     },
     "increase_quality": {
       "suggested_key": {
         "default": "Ctrl+Shift+2",
         "mac": "Command+Shift+2"
       },
-      "description": "Increase YouTube video quality"
+      "description": "2. Increase Quality"
     },
     "lowest_quality": {
       "suggested_key": {
         "default": "Ctrl+Shift+9",
         "mac": "Command+Shift+9"
       },
-      "description": "Set to lowest YouTube video quality"
+      "description": "3. Lowest Quality"
     },
     "highest_quality": {
       "suggested_key": {
         "default": "Ctrl+Shift+0",
         "mac": "Command+Shift+0"
       },
-      "description": "Set to highest YouTube video quality"
+      "description": "4. Highest Quality"
     }
   },
   "web_accessible_resources": [
