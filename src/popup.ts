@@ -425,8 +425,21 @@ function getQualityInfo(): void {
     (response: QualityResponse) => {
       const error = chrome.runtime.lastError;
       if (error) {
-        console.error('Error getting quality info:', error.message);
-        showMessage('Could not retrieve quality information', 'error');
+        // Suppress expected errors when not on YouTube or tab closed
+        const suppressedErrors = [
+          'Could not establish connection',
+          'Receiving end does not exist',
+          'Extension context invalidated'
+        ];
+
+        const shouldSuppress = suppressedErrors.some(msg =>
+          error.message?.includes(msg)
+        );
+
+        if (!shouldSuppress) {
+          console.error('Error getting quality info:', error.message);
+        }
+        // Don't show error message to user - these are expected
         return;
       }
 
