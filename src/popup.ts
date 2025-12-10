@@ -254,6 +254,14 @@ function initializeControls(): void {
   qualitySlider.addEventListener('mouseleave', () => {
     sliderTooltip.classList.remove('visible');
   });
+
+  // Open Native Chrome Shortcuts Page
+  const settingsBtn = document.getElementById('openSettings');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+    });
+  }
 }
 
 /**
