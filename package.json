@@ -1,6 +1,6 @@
 {
   "name": "youtube-quality-shortcut",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Control YouTube video quality with keyboard shortcuts",
   "private": true,
   "scripts": {
