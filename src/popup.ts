@@ -60,6 +60,12 @@ async function initializePopup(): Promise<void> {
       versionElement.textContent = `v${manifest.version}`;
     }
 
+    // Initialize global control event listeners (works on all pages)
+    initializeGlobalControls();
+
+    // Initialize debug logs
+    initDebugLogs();
+
     // Get the current active tab
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tabs || tabs.length === 0) {
@@ -77,11 +83,8 @@ async function initializePopup(): Promise<void> {
       return;
     }
 
-    // Initialize control event listeners
-    initializeControls();
-
-    // Initialize debug logs
-    initDebugLogs();
+    // Initialize quality control event listeners
+    initializeQualityControls();
 
     // Get quality information from the YouTube player
     getQualityInfo();
@@ -224,9 +227,25 @@ function updateQualityDisplay(response: QualityResponse): void {
 }
 
 /**
- * Initialize control event listeners
+ * Initialize global control event listeners (works on all pages)
  */
-function initializeControls(): void {
+function initializeGlobalControls(): void {
+  // Coffee button event
+  setupCoffeeButton();
+
+  // Open Native Chrome Shortcuts Page
+  const settingsBtn = document.getElementById('openSettings');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+    });
+  }
+}
+
+/**
+ * Initialize quality control event listeners (requires YouTube page)
+ */
+function initializeQualityControls(): void {
   // Slider input event (while dragging)
   qualitySlider.addEventListener('input', handleSliderInput);
 
@@ -246,22 +265,11 @@ function initializeControls(): void {
     }
   });
 
-  // Coffee button event
-  setupCoffeeButton();
-
   // Slider hover events for tooltip
   qualitySlider.addEventListener('mousemove', handleSliderHover);
   qualitySlider.addEventListener('mouseleave', () => {
     sliderTooltip.classList.remove('visible');
   });
-
-  // Open Native Chrome Shortcuts Page
-  const settingsBtn = document.getElementById('openSettings');
-  if (settingsBtn) {
-    settingsBtn.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
-    });
-  }
 }
 
 /**
